@@ -21,28 +21,27 @@ let wallet;
 const addNewPrice = async (networkName, token, ts) => {
   const symbol = ethers.decodeBytes32String(token.symbol);
   const chainlinkContract = await getContract(networkName, 'Chainlink', token.clAddr);
-  chainlinkContract.connect(wallet).latestRoundData().then(async data => {
-    await redis.SADD(`tokens:${networkName}`, symbol);
-    await redis.ZADD(`prices:${networkName}:${symbol}`, [{score: ts, value: `${ts}:${data.answer.toString()}`}]);
-    await redis.ZREMRANGEBYRANK(`${networkName}:${symbol}`, 0, priceDataLength * -1 - 1);
-  });
+  const data = await chainlinkContract.connect(wallet).latestRoundData();
+  await redis.connect();
+  await redis.SADD(`tokens:${networkName}`, symbol);
+  await redis.ZADD(`prices:${networkName}:${symbol}`, [{score: ts, value: `${ts}:${data.answer.toString()}`}]);
+  await redis.ZREMRANGEBYRANK(`${networkName}:${symbol}`, 0, priceDataLength * -1 - 1);
+  await redis.disconnect();
 }
 
 const schedulePricingIndexing = async _ => {
-  await redis.connect();
   delay = 0;
   getNetworks().forEach(network => {
     schedule.scheduleJob(`${delay} */30 * * * *`, async _ => {
-      console.log(`indexing prices ${network.name}...`);
-      const provider = new ethers.getDefaultProvider(network.rpc)
+      console.log(`indexing prices ${network.name} ...`);
+      const provider = new ethers.getDefaultProvider(network.rpc);
       wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
       const ts = Math.floor(new Date() / 1000);
-      (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens().then(tokens => {
-        tokens.map(token => {
-          addNewPrice(network.name, token, ts);
-        });
-      }).catch(console.log);
-      console.log(`indexed prices ${network.name}.`);
+      const tokens = await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens();
+      for (let i = 0; i < tokens.length; i++) {
+        await addNewPrice(network.name, tokens[i], ts);
+      }
+      console.log(`indexed prices ${network.name}`);
     });
     delay += 10;
   });
