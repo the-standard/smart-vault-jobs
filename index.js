@@ -9,7 +9,6 @@ schedulePricingIndexing();
 scheduleStatIndexing();
 
 const server = http.createServer(async (req, res) => {
-  console.log(`${new Date().toISOString()} | ${req.method} ${req.url}`);
   res.statusCode = 200;
   res.end();
 });
