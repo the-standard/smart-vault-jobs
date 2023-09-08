@@ -32,7 +32,7 @@ const addNewPrice = async (networkName, token, ts) => {
 const schedulePricingIndexing = async _ => {
   delay = 0;
   getNetworks().forEach(network => {
-    schedule.scheduleJob(`${delay} * * * * *`, async _ => {
+    schedule.scheduleJob(`${delay} */30 * * * *`, async _ => {
       console.log(`indexing prices ${network.name} ...`);
       const provider = new ethers.getDefaultProvider(network.rpc);
       wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
