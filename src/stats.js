@@ -15,23 +15,27 @@ redis.on('error', err => console.log('Redis Client Error', err));
 const saveTvlDateToRedis = async data => {
   await redis.connect();
   let multi = redis.MULTI()
-          .DEL('assets')
-          .SADD('assets', data.map(asset => asset.address));
+    .DEL('assets')
+    .SADD('assets', data.map(asset => asset.address));
   data.forEach(asset => {
     multi = multi.SETEX(`tvl:${asset.address}`, 3600, asset.assetTvl);
   });
   await multi.EXEC();
   await redis.disconnect();
-}
+};
 
 const indexStats = async _ => {
   const network = getNetwork('arbitrum');
-  const provider = new ethers.getDefaultProvider(network.rpc)
+  const provider = new ethers.getDefaultProvider(network.rpc);
   const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
   const tokens = await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens();
-  const eventData = await (await getContract(network.name, 'SmartVaultManager')).connect(wallet)
-    .queryFilter('*');
+  const VaultManagerContract = await getContract(network.name, 'SmartVaultManager');
+  
+  const filter = VaultManagerContract.filters.VaultDeployed();
+  const eventData = await (VaultManagerContract).connect(wallet)
+    .queryFilter(filter);
   const vaultAddresses = eventData.filter(e => e.args).map(e => e.args[0]);
+
   const tvl = [];
   for (let i = 0; i < tokens.length; i++) {
     const { addr } = tokens[i];
@@ -44,20 +48,20 @@ const indexStats = async _ => {
         assetTvl += await (await getERC20(addr)).connect(wallet).balanceOf(vaultAddress);
       }
     }
-    tvl.push({address: addr, assetTvl: assetTvl.toString()});
+    tvl.push({ address: addr, assetTvl: assetTvl.toString() });
   }
 
   await saveTvlDateToRedis(tvl);
-}
+};
 
 const scheduleStatIndexing = async _ => {
   schedule.scheduleJob(`15 */10 * * * *`, async _ => {
-    console.log(`indexing stats...`);    
+    console.log(`indexing stats...`);
     await indexStats();
     console.log(`indexed stats.`);
   });
-}
+};
 
 module.exports = {
   scheduleStatIndexing
-}
+};
