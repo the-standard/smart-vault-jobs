@@ -51,7 +51,7 @@ const indexStats = async _ => {
 };
 
 const scheduleStatIndexing = async _ => {
-  schedule.scheduleJob('15 10 6 * * *', async _ => {
+  schedule.scheduleJob('15 57 6 * * *', async _ => {
     console.log(`indexing stats...`);
     await indexStats();
     console.log(`indexed stats.`);
