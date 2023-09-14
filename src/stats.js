@@ -3,6 +3,7 @@ const ethers = require('ethers');
 const { createClient } = require('redis');
 const { getContract, getERC20 } = require('./contractFactory');
 const { getNetwork } = require('./networks');
+const { getVaultAddresses } = require('./vaults');
 
 const redisHost = process.env.REDIS_HOST || '127.0.0.1';
 const redisPort = process.env.REDIS_PORT || '6379';
@@ -29,12 +30,8 @@ const indexStats = async _ => {
   const provider = new ethers.getDefaultProvider(network.rpc);
   const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
   const tokens = await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens();
-  const VaultManagerContract = await getContract(network.name, 'SmartVaultManager');
-  
-  const filter = VaultManagerContract.filters.VaultDeployed();
-  const eventData = await (VaultManagerContract).connect(wallet)
-    .queryFilter(filter);
-  const vaultAddresses = eventData.filter(e => e.args).map(e => e.args[0]);
+  const vaultAddresses = await getVaultAddresses(wallet, network);
+  console.log(vaultAddresses)
 
   const tvl = [];
   for (let i = 0; i < tokens.length; i++) {
@@ -55,7 +52,7 @@ const indexStats = async _ => {
 };
 
 const scheduleStatIndexing = async _ => {
-  schedule.scheduleJob(`15 */10 * * * *`, async _ => {
+  schedule.scheduleJob('15 10 6 * * *', async _ => {
     console.log(`indexing stats...`);
     await indexStats();
     console.log(`indexed stats.`);
