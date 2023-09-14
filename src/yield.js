@@ -44,7 +44,9 @@ const getCamelotData = async _ => {
 
 const scheduleIndexYieldData = _ => {
   schedule.scheduleJob(`*/15 * * * *`, async _ => {
+    console.log('indexing yield data ...')
     await saveToRedis(await getCamelotData());
+    console.log('indexed yield data')
   });
 }
 
