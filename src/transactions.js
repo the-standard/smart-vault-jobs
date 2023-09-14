@@ -303,7 +303,7 @@ const indexVaultTransactions = async _ => {
 }
 
 const scheduleVaultTransactionIndexing = async _ => {
-  schedule.scheduleJob('2,32 * * * *', async _ => {
+  schedule.scheduleJob('2 * * * *', async _ => {
     await indexVaultTransactions();
   });
 }
