@@ -9,6 +9,17 @@ const networks = [
   }
 ]
 
+const archiveNodes = [
+  {
+    name: 'arbitrum',
+    rpc: 'https://arbitrum-one-archive.allthatnode.com'
+  },
+  {
+    name: 'arbitrum_goerli',
+    rpc: 'https://arbitrum-goerli-archive.allthatnode.com'
+  }
+]
+
 const getNetworks = _ => {
   return networks;
 }
@@ -17,7 +28,12 @@ const getNetwork = name => {
   return networks.filter(network => network.name === name)[0];
 }
 
+const getArchiveNode = name => {
+  return archiveNodes.filter(network => network.name === name)[0];
+}
+
 module.exports = {
   getNetworks,
-  getNetwork
+  getNetwork,
+  getArchiveNode
 }
