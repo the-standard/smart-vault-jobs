@@ -4,6 +4,7 @@ const { schedulePricingIndexing } = require('./src/pricing');
 const { scheduleStatIndexing } = require('./src/stats');
 const { scheduleLiquidation } = require('./src/liquidation');
 const { scheduleIndexYieldData } = require('./src/yield');
+const { scheduleVaultTransactionIndexing } = require('./src/transactions');
 
 const port = process.env.PORT || 3000;
 
@@ -11,6 +12,7 @@ schedulePricingIndexing();
 scheduleStatIndexing();
 scheduleLiquidation();
 scheduleIndexYieldData();
+scheduleVaultTransactionIndexing();
 
 const server = http.createServer(async (req, res) => {
   res.statusCode = 200;
