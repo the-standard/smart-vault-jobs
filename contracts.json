@@ -127,6 +127,19 @@
             "outputs": [],
             "stateMutability": "nonpayable",
             "type": "function"
+        },
+        {
+          "anonymous": false,
+          "inputs": [
+            {
+              "indexed": true,
+              "internalType": "address",
+              "name": "vaultAddress",
+              "type": "address"
+            }
+          ],
+          "name": "VaultLiquidated",
+          "type": "event"
         }
     ],
     "ERC20": [
@@ -148,6 +161,214 @@
             ],
             "stateMutability": "view",
             "type": "function"
+        },
+        {
+            "anonymous": false,
+            "inputs": [
+                {
+                    "indexed": true,
+                    "internalType": "address",
+                    "name": "from",
+                    "type": "address"
+                },
+                {
+                    "indexed": true,
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "value",
+                    "type": "uint256"
+                }
+            ],
+            "name": "Transfer",
+            "type": "event"
+        },
+        {
+            "inputs": [],
+            "name": "symbol",
+            "outputs": [
+                {
+                    "internalType": "string",
+                    "name": "",
+                    "type": "string"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ],
+    "SmartVault": [
+        {
+            "inputs": [],
+            "name": "status",
+            "outputs": [
+                {
+                    "components": [
+                        {
+                            "internalType": "address",
+                            "name": "vaultAddress",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "minted",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "maxMintable",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "totalCollateralValue",
+                            "type": "uint256"
+                        },
+                        {
+                            "components": [
+                                {
+                                    "components": [
+                                        {
+                                            "internalType": "bytes32",
+                                            "name": "symbol",
+                                            "type": "bytes32"
+                                        },
+                                        {
+                                            "internalType": "address",
+                                            "name": "addr",
+                                            "type": "address"
+                                        },
+                                        {
+                                            "internalType": "uint8",
+                                            "name": "dec",
+                                            "type": "uint8"
+                                        },
+                                        {
+                                            "internalType": "address",
+                                            "name": "clAddr",
+                                            "type": "address"
+                                        },
+                                        {
+                                            "internalType": "uint8",
+                                            "name": "clDec",
+                                            "type": "uint8"
+                                        }
+                                    ],
+                                    "internalType": "struct ITokenManager.Token",
+                                    "name": "token",
+                                    "type": "tuple"
+                                },
+                                {
+                                    "internalType": "uint256",
+                                    "name": "amount",
+                                    "type": "uint256"
+                                },
+                                {
+                                    "internalType": "uint256",
+                                    "name": "collateralValue",
+                                    "type": "uint256"
+                                }
+                            ],
+                            "internalType": "struct ISmartVault.Asset[]",
+                            "name": "collateral",
+                            "type": "tuple[]"
+                        },
+                        {
+                            "internalType": "bool",
+                            "name": "liquidated",
+                            "type": "bool"
+                        },
+                        {
+                            "internalType": "uint8",
+                            "name": "version",
+                            "type": "uint8"
+                        },
+                        {
+                            "internalType": "bytes32",
+                            "name": "vaultType",
+                            "type": "bytes32"
+                        }
+                    ],
+                    "internalType": "struct ISmartVault.Status",
+                    "name": "",
+                    "type": "tuple"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "anonymous": false,
+            "inputs": [
+                {
+                    "indexed": false,
+                    "internalType": "bytes32",
+                    "name": "symbol",
+                    "type": "bytes32"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                }
+            ],
+            "name": "CollateralRemoved",
+            "type": "event"
+        },
+        {
+            "anonymous": false,
+            "inputs": [
+                {
+                    "indexed": false,
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "fee",
+                    "type": "uint256"
+                }
+            ],
+            "name": "EUROsMinted",
+            "type": "event"
+        },
+        {
+            "anonymous": false,
+            "inputs": [
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                },
+                {
+                    "indexed": false,
+                    "internalType": "uint256",
+                    "name": "fee",
+                    "type": "uint256"
+                }
+            ],
+            "name": "EUROsBurned",
+            "type": "event"
         }
     ]
 }
