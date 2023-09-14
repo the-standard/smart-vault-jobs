@@ -1,5 +1,6 @@
 const fs = require('fs');
 const https = require('https');
+const schedule = require('node-schedule');
 const { ethers } = require("ethers");
 const { createClient } = require('redis');
 const { getArchiveNode, getNetwork } = require("./networks");
