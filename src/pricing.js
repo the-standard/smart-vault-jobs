@@ -17,7 +17,7 @@ redis.on('error', err => console.log('Redis Client Error', err));
 let wallet;
 
 const addNewPrice = async (networkName, token, ts) => {
-  const symbol = ethers.decodeBytes32String(token.symbol);
+  const symbol = ethers.utils.parseBytes32String(token.symbol);
   const chainlinkContract = await getContract(networkName, 'Chainlink', token.clAddr);
   const data = await chainlinkContract.connect(wallet).latestRoundData();
   await redis.connect();

@@ -31,7 +31,6 @@ const indexStats = async _ => {
   const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
   const tokens = await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens();
   const vaultAddresses = await getVaultAddresses(wallet, network);
-  console.log(vaultAddresses)
 
   const tvl = [];
   for (let i = 0; i < tokens.length; i++) {
@@ -39,7 +38,7 @@ const indexStats = async _ => {
     let assetTvl = 0n;
     for (let j = 0; j < vaultAddresses.length; j++) {
       const vaultAddress = vaultAddresses[j];
-      if (addr === ethers.ZeroAddress) {
+      if (addr === ethers.constants.AddressZero) {
         assetTvl += await provider.getBalance(vaultAddress);
       } else {
         assetTvl += await (await getERC20(addr)).connect(wallet).balanceOf(vaultAddress);

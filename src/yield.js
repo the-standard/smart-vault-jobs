@@ -33,7 +33,6 @@ const getCamelotData = async _ => {
   
       res.on('end', _ => {
         const poolData = JSON.parse(json).data.pools[POOL_ADDRESS];
-        console.log(poolData)
         resolve({
           tvl: poolData.activeTvlUSD,
           apy: poolData.activeTvlAverageAPR
