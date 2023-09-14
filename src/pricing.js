@@ -30,9 +30,10 @@ const addNewPrice = async (networkName, token, ts) => {
 }
 
 const schedulePricingIndexing = async _ => {
-  delay = 0;
-  getNetworks().forEach(network => {
-    schedule.scheduleJob(`${delay} */30 * * * *`, async _ => {
+  schedule.scheduleJob('*/30 * * * *', async _ => {
+    const networks = getNetworks();
+    for (let i = 0; i < networks.length; i++) {
+      const network = networks[i];
       console.log(`indexing prices ${network.name} ...`);
       const provider = new ethers.getDefaultProvider(network.rpc);
       wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
@@ -42,8 +43,7 @@ const schedulePricingIndexing = async _ => {
         await addNewPrice(network.name, tokens[i], ts);
       }
       console.log(`indexed prices ${network.name}`);
-    });
-    delay += 10;
+    }
   });
 };
 
