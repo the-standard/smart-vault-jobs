@@ -24,9 +24,11 @@ let endBlock;
 let tokenDecs = {};
 
 const withBlockLimits = filter => {
-  filter.fromBlock = startBlock;
-  filter.toBlock = endBlock;
-  return filter;
+  return {
+    ... filter,
+    fromBlock: startBlock,
+    toBlock: endBlock
+  }
 }
 
 const addVaultStatus = async (transactions) => {
@@ -148,6 +150,7 @@ const getBorrows = async (vaults, wallet, provider) => {
     const vault = vaults[i]
     const vaultContract = new ethers.Contract(vault, contracts.SmartVault, wallet);
     const filter = withBlockLimits(vaultContract.filters.EUROsMinted());
+  
     const vaultBorrows = await vaultContract.queryFilter(filter);
     for (let j = 0; j < vaultBorrows.length; j++) {
       const vaultBorrow = vaultBorrows[j];
@@ -172,6 +175,7 @@ const getRepays = async (vaults, wallet, provider) => {
     const vault = vaults[i]
     const vaultContract = new ethers.Contract(vault, contracts.SmartVault, wallet);
     const filter = withBlockLimits(vaultContract.filters.EUROsBurned());
+  
     const vaultRepays = await vaultContract.queryFilter(filter);
     for (let j = 0; j < vaultRepays.length; j++) {
       const vaultRepay = vaultRepays[j];
@@ -193,6 +197,7 @@ const getRepays = async (vaults, wallet, provider) => {
 const getLiquidations = async (smartVaultManagerContract, provider) => {
   const liquidations = [];
   const filter = withBlockLimits(smartVaultManagerContract.filters.VaultLiquidated());
+
   const liquidationEvents = await smartVaultManagerContract.queryFilter(filter);
   for (let i = 0; i < liquidationEvents.length; i++) {
     const event = liquidationEvents[i];
@@ -303,8 +308,11 @@ const indexVaultTransactions = async _ => {
 }
 
 const scheduleVaultTransactionIndexing = async _ => {
-  schedule.scheduleJob('2,32 * * * *', async _ => {
+  const job = schedule.scheduleJob('2,32 * * * *', async _ => {
     await indexVaultTransactions();
+  });
+  job.on('error', err => {
+    console.log(err);
   });
 }
 
