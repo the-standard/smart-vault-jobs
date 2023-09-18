@@ -49,6 +49,7 @@ const getERC20DepositsForVaults = async (vaults, tokens, wallet, provider) => {
     const token = tokens[i];
     const tokenContract = new ethers.Contract(token.addr, contracts.ERC20, wallet);
     const filter = withBlockLimits(tokenContract.filters.Transfer(null, vaults));
+    console.log(filter)
     const tokenDepositEvents = await tokenContract.queryFilter(filter);
     for (let j = 0; j < tokenDepositEvents.length; j++) {
       const tokenDepositEvent = tokenDepositEvents[j];
