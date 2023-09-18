@@ -298,11 +298,11 @@ const indexVaultTransactions = async _ => {
     const vaults = await getVaultAddresses(wallet, network);
     const transactions = await addVaultStatus((await Promise.all([
       getERC20DepositsForVaults(vaults, erc20Tokens, wallet, provider),
-      // getAllEthDeposits(vaults),
-      // getWithdrawals(vaults, wallet, provider),
-      // getBorrows(vaults, wallet, provider),
-      // getRepays(vaults, wallet, provider),
-      // getLiquidations(smartVaultManagerContract, provider)
+      getAllEthDeposits(vaults),
+      getWithdrawals(vaults, wallet, provider),
+      getBorrows(vaults, wallet, provider),
+      getRepays(vaults, wallet, provider),
+      getLiquidations(smartVaultManagerContract, provider)
     ])).flat());
     await saveToRedis(transactions);
     const endTs = getTs();
@@ -315,12 +315,12 @@ const indexVaultTransactions = async _ => {
 }
 
 const scheduleVaultTransactionIndexing = async _ => {
-  // const job = schedule.scheduleJob('2,32 * * * *', async _ => {
+  const job = schedule.scheduleJob('2,32 * * * *', async _ => {
     await indexVaultTransactions();
-  // });
-  // job.on('error', err => {
-  //   console.log(err);
-  // });
+  });
+  job.on('error', err => {
+    console.log(err);
+  });
 }
 
 module.exports = {
