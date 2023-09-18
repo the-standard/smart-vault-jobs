@@ -51,6 +51,7 @@ const getERC20DepositsForVaults = async (vaults, tokens, wallet, provider) => {
     const filter = withBlockLimits(tokenContract.filters.Transfer(null, vaults));
     let tokenDepositEvents;
     while (!tokenDepositEvents) {
+      console.log(`trying deposits ${token.addr}`);
       try {
         tokenDepositEvents = await tokenContract.queryFilter(filter, startBlock, endBlock);
       } catch(e) {
@@ -136,6 +137,7 @@ const getWithdrawals = async (vaults, wallet, provider) => {
     let vaultWithdrawals;
     while (!vaultWithdrawals) {
       try {
+        console.log(`trying withdrawals ${vault}`)
         vaultWithdrawals = await vaultContract.queryFilter(filter, startBlock, endBlock);
       } catch(e) {
         break;
@@ -166,6 +168,7 @@ const getBorrows = async (vaults, wallet, provider) => {
     const filter = withBlockLimits(vaultContract.filters.EUROsMinted());
     let vaultBorrows;
     while (!vaultBorrows) {
+      console.log(`trying borrows ${vault}`)
       try {
         vaultBorrows = await vaultContract.queryFilter(filter, startBlock, endBlock);
       } catch(e) {
@@ -197,6 +200,7 @@ const getRepays = async (vaults, wallet, provider) => {
     const filter = withBlockLimits(vaultContract.filters.EUROsBurned());
     let vaultRepays;
     while (!vaultRepays) {
+      console.log(`trying repays ${vault}`)
       try {
         vaultRepays = await vaultContract.queryFilter(filter, startBlock, endBlock);
       } catch(e) {
@@ -226,6 +230,7 @@ const getLiquidations = async (smartVaultManagerContract, provider) => {
 
   let liquidationEvents;
   while (!liquidationEvents) {
+    console.log(`trying liquidations`)
     try {
       liquidationEvents = await smartVaultManagerContract.queryFilter(filter, startBlock, endBlock);
     } catch(e) {
