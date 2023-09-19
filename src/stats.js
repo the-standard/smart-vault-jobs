@@ -3,7 +3,6 @@ const ethers = require('ethers');
 const { createClient } = require('redis');
 const { getContract, getERC20 } = require('./contractFactory');
 const { getNetwork } = require('./networks');
-const { getVaultAddresses } = require('./vaults');
 
 const redisHost = process.env.REDIS_HOST || '127.0.0.1';
 const redisPort = process.env.REDIS_PORT || '6379';
@@ -30,7 +29,7 @@ const indexStats = async _ => {
   const provider = new ethers.getDefaultProvider(network.rpc);
   const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
   const tokens = await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens();
-  const vaultAddresses = await getVaultAddresses(wallet, network);
+  const vaultAddresses = [];
 
   const tvl = [];
   for (let i = 0; i < tokens.length; i++) {
