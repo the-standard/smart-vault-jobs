@@ -18,91 +18,90 @@ redis.on('error', err => console.log('Redis Client Error', err));
 
 const LATEST_INDEXED_BLOCK_KEY = 'tx:latestBlock';
 const SMART_VAULT_LAUNCH_BLOCK = 117059962;
+const VAULT_ADDRESSES_KEY = 'vaultAddresses';
 let startBlock;
 let endBlock;
 let tokenDecs = {};
 
 const withBlockLimits = filter => {
   return {
-    ... filter,
+    ...filter,
     fromBlock: startBlock,
     toBlock: endBlock
-  }
-}
+  };
+};
 
-const getVaultAddresses = async (wallet, network) => {
+const getStatusAt = async (tx, wallet) => {
   try {
-    const VaultManagerContract = await getContract(network.name, 'SmartVaultManager');
-  
-    const filter = VaultManagerContract.filters.VaultDeployed();
-    const eventData = await (VaultManagerContract).connect(wallet)
-      .queryFilter(filter, SMART_VAULT_LAUNCH_BLOCK, endBlock);
-    return eventData.filter(e => e.args).map(e => e.args[0]);
+    const vault = new ethers.Contract(tx.vaultAddress, contracts.SmartVault, wallet);
+    return await vault.status({ blockTag: tx.blockNumber });
   } catch (e) {
     console.log(e);
-    console.log('retrying vault addresses');
-    return await getVaultAddresses(wallet, network);
+    console.log(`getting status for ${tx.vaultAddress} at ${tx.blockNumber}`);
   }
-};
+}
 
 const addVaultStatus = async (transactions) => {
   const transactionsWithStatus = [];
+  const { wallet } = getWallet(getArchiveNode('arbitrum'));
+  const statuses = await Promise.all(transactions.map(tx => getStatusAt(tx, wallet)))
   for (let i = 0; i < transactions.length; i++) {
-    const transaction = transactions[i]
-    const { wallet } = getWallet(getArchiveNode('arbitrum'));
-    const vault = new ethers.Contract(transaction.vaultAddress, contracts.SmartVault, wallet);
-    const { minted, totalCollateralValue } = await vault.status({blockTag: transaction.blockNumber});
-    transactionsWithStatus.push({ ... transaction, minted: minted.toString(), totalCollateralValue: totalCollateralValue.toString() });
+    transactionsWithStatus.push({
+      ... transactions[i],
+      minted: statuses[i].minted.toString(),
+      totalCollateralValue: statuses[i].totalCollateralValue.toString()
+    })
   }
   return transactionsWithStatus;
-}
+};
 
 const getDepositsForERC20 = async (vaults, token, wallet) => {
   try {
     const tokenContract = new ethers.Contract(token.addr, contracts.ERC20, wallet);
     const filter = withBlockLimits(tokenContract.filters.Transfer(null, vaults));
-    return await tokenContract.queryFilter(filter, startBlock, endBlock);
+    const events = await tokenContract.queryFilter(filter, startBlock, endBlock);
+    return events.map(event => {
+      return {
+        ... event,
+        tokenSymbol: ethers.utils.parseBytes32String(token.symbol),
+        tokenDec: token.dec
+      }
+    });
   } catch (e) {
     console.log(e);
-    console.log(`retrying deposits ${token}`)
+    console.log(`retrying deposits ${token}`);
     return await getDepositsForERC20(vaults, token, wallet);
   }
-}
+};
 
 const getERC20DepositsForVaults = async (vaults, tokens, wallet, provider) => {
-  let deposits = [];
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    const tokenDepositEvents = await getDepositsForERC20(vaults, token, wallet);
-    for (let j = 0; j < tokenDepositEvents.length; j++) {
-      const tokenDepositEvent = tokenDepositEvents[j];
-      deposits.push({
-        type: 'deposit',
-        txHash: tokenDepositEvent.transactionHash.toLowerCase(),
-        blockNumber: tokenDepositEvent.blockNumber,
-        asset: ethers.utils.parseBytes32String(token.symbol),
-        vaultAddress: tokenDepositEvent.args.to.toLowerCase(),
-        amount: tokenDepositEvent.args.value.toString(),
-        amountDec: token.dec,
-        timestamp: (await provider.getBlock(tokenDepositEvent.blockNumber)).timestamp
-      })
+  const depositEvents = (await Promise.all(tokens.map(token => getDepositsForERC20(vaults, token, wallet)))).flat();
+  const timestamps = (await Promise.all(depositEvents.map(e => provider.getBlock(e.blockNumber)))).map(block => block.timestamp);
+  return depositEvents.map((event, i) => {
+    return {
+      type: 'deposit',
+      txHash: event.transactionHash.toLowerCase(),
+      blockNumber: event.blockNumber,
+      asset: event.tokenSymbol,
+      vaultAddress: event.args.to.toLowerCase(),
+      amount: event.args.value.toString(),
+      amountDec: event.tokenDec,
+      timestamp: timestamps[i]
     }
-  }
-
-  return deposits;
-}
+  });
+};
 
 const allTransactionsFor = async vault => {
   try {
-    const url = `https://api.arbiscan.io/api?module=account&action=txlist&address=${vault}&startblock=${startBlock}&endBlock=${endBlock}&sort=asc&apikey=${process.env.ARBISCAN_KEY}`
+    const url = `https://api.arbiscan.io/api?module=account&action=txlist&address=${vault}&startblock=${startBlock}&endBlock=${endBlock}&sort=asc&apikey=${process.env.ARBISCAN_KEY}`;
     return new Promise(resolve => {
       https.get(url, res => {
         let json = '';
-  
+
         res.on('data', data => {
           json += data;
         });
-  
+
         res.on('end', _ => {
           resolve(JSON.parse(json));
         });
@@ -113,7 +112,7 @@ const allTransactionsFor = async vault => {
     console.log(`retrying eth deposits ${vault}`);
     return await allTransactionsFor(vault);
   }
-}
+};
 
 const vaultEthDeposits = async (vault) => {
   const allTransactions = await allTransactionsFor(vault);
@@ -129,128 +128,128 @@ const vaultEthDeposits = async (vault) => {
       amount: tx.value,
       amountDec: 18,
       timestamp: tx.timeStamp
-    }
-  })
-}
+    };
+  });
+};
 
 const requestRateLimit = async ms => {
   return new Promise(resolve => {
     setTimeout(() => resolve(), ms);
   });
-}
+};
 
 const getAllEthDeposits = async (vaults) => {
   let deposits = [];
 
   for (let i = 0; i < vaults.length; i++) {
-    await requestRateLimit(500)
-    deposits = [ ... deposits, ... await vaultEthDeposits(vaults[i])];
+    await requestRateLimit(500);
+    deposits = [...deposits, ... await vaultEthDeposits(vaults[i])];
   }
 
   return deposits;
-}
+};
 
 const getVaultWithdrawals = async (vault, wallet) => {
   try {
     const vaultContract = new ethers.Contract(vault, contracts.SmartVault, wallet);
     const filter = withBlockLimits(vaultContract.filters.CollateralRemoved());
-    return await vaultContract.queryFilter(filter, startBlock, endBlock);
+    return (await vaultContract.queryFilter(filter, startBlock, endBlock)).map(event => {
+      return {
+        ... event,
+        vaultAddress: vault
+      }
+    });
   } catch (e) {
     console.log(e);
-    console.log(`retrying withdrawals ${vault}`)
-    return await getVaultWithdrawals(vault, wallet)
+    console.log(`retrying withdrawals ${vault}`);
+    return await getVaultWithdrawals(vault, wallet);
   }
-}
+};
 
 const getWithdrawals = async (vaults, wallet, provider) => {
-  let withdrawals = [];
-  for (let i = 0; i < vaults.length; i++) {
-    const vault = vaults[i];
-    const vaultWithdrawals = await getVaultWithdrawals(vault, wallet)
-    for (let j = 0; j < vaultWithdrawals.length; j++) {
-      const vaultWithdrawal = vaultWithdrawals[j];
-      withdrawals.push({
-        type: 'withdrawal',
-        txHash: vaultWithdrawal.transactionHash.toLowerCase(),
-        blockNumber: vaultWithdrawal.blockNumber,
-        asset: ethers.utils.parseBytes32String(vaultWithdrawal.args.symbol),
-        vaultAddress: vault.toLowerCase(),
-        amount: vaultWithdrawal.args.amount.toString(),
-        amountDec: tokenDecs[vaultWithdrawal.args.symbol],
-        timestamp: (await provider.getBlock(vaultWithdrawal.blockNumber)).timestamp
-      })
+  const withdrawalEvents = (await Promise.all(vaults.map(vault => getVaultWithdrawals(vault, wallet)))).flat();
+  const timestamps = (await Promise.all(withdrawalEvents.map(e => provider.getBlock(e.blockNumber)))).map(block => block.timestamp);
+  return withdrawalEvents.map((event, i) => {
+    return {
+      type: 'withdrawal',
+      txHash: event.transactionHash.toLowerCase(),
+      blockNumber: event.blockNumber,
+      asset: ethers.utils.parseBytes32String(event.args.symbol),
+      vaultAddress: event.vaultAddress.toLowerCase(),
+      amount: event.args.amount.toString(),
+      amountDec: tokenDecs[event.args.symbol],
+      timestamp: timestamps[i]
     }
-  }
-  return withdrawals;
-}
+  });
+};
 
 const getVaultBorrows = async (vault, wallet) => {
   try {
     const vaultContract = new ethers.Contract(vault, contracts.SmartVault, wallet);
     const filter = withBlockLimits(vaultContract.filters.EUROsMinted());
-    return await vaultContract.queryFilter(filter, startBlock, endBlock);
+    return (await vaultContract.queryFilter(filter, startBlock, endBlock)).map(event => {
+      return {
+        ... event,
+        vaultAddress: vault
+      }
+    });
   } catch (e) {
     console.log(e);
-    console.log(`retrying borrows ${vault}`)
+    console.log(`retrying borrows ${vault}`);
     return await getVaultBorrows(vault, wallet);
   }
-}
+};
 
 const getBorrows = async (vaults, wallet, provider) => {
-  let borrows = [];
-  for (let i = 0; i < vaults.length; i++) {
-    const vault = vaults[i];
-    const vaultBorrows = await getVaultBorrows(vault, wallet);
-    for (let j = 0; j < vaultBorrows.length; j++) {
-      const vaultBorrow = vaultBorrows[j];
-      borrows.push({
-        type: 'borrow',
-        txHash: vaultBorrow.transactionHash.toLowerCase(),
-        blockNumber: vaultBorrow.blockNumber,
-        asset: 'EUROs',
-        vaultAddress: vault.toLowerCase(),
-        amount: vaultBorrow.args.amount.toString(),
-        amountDec: 18,
-        timestamp: (await provider.getBlock(vaultBorrow.blockNumber)).timestamp
-      })
+  const borrowEvents = (await Promise.all(vaults.map(vault => getVaultBorrows(vault, wallet)))).flat();
+  const timestamps = (await Promise.all(borrowEvents.map(e => provider.getBlock(e.blockNumber)))).map(block => block.timestamp);
+  return borrowEvents.map((event, i) => {
+    return {
+      type: 'borrow',
+      txHash: event.transactionHash.toLowerCase(),
+      blockNumber: event.blockNumber,
+      asset: 'EUROs',
+      vaultAddress: event.vaultAddress.toLowerCase(),
+      amount: event.args.amount.toString(),
+      amountDec: 18,
+      timestamp: timestamps[i]
     }
-  }
-  return borrows;
-}
+  });
+};
 
 const getVaultRepays = async (vault, wallet) => {
   try {
     const vaultContract = new ethers.Contract(vault, contracts.SmartVault, wallet);
     const filter = withBlockLimits(vaultContract.filters.EUROsBurned());
-    return await vaultContract.queryFilter(filter, startBlock, endBlock);
+    return (await vaultContract.queryFilter(filter, startBlock, endBlock)).map(event => {
+      return {
+        ... event,
+        vaultAddress: vault.toLowerCase()
+      }
+    });
   } catch (e) {
     console.log(e);
-    console.log(`retrying repays ${vault}`)
-    return await getVaultRepays(vault, wallet)
+    console.log(`retrying repays ${vault}`);
+    return await getVaultRepays(vault, wallet);
   }
-}
+};
 
 const getRepays = async (vaults, wallet, provider) => {
-  let repays = [];
-  for (let i = 0; i < vaults.length; i++) {
-    const vault = vaults[i]
-    const vaultRepays = await getVaultRepays(vault, wallet);
-    for (let j = 0; j < vaultRepays.length; j++) {
-      const vaultRepay = vaultRepays[j];
-      repays.push({
-        type: 'repay',
-        txHash: vaultRepay.transactionHash.toLowerCase(),
-        blockNumber: vaultRepay.blockNumber,
-        asset: 'EUROs',
-        vaultAddress: vault.toLowerCase(),
-        amount: vaultRepay.args.amount.toString(),
-        amountDec: 18,
-        timestamp: (await provider.getBlock(vaultRepay.blockNumber)).timestamp
-      })
+  const repayEvents = (await Promise.all(vaults.map(vault => getVaultRepays(vault, wallet)))).flat();
+  const timestamps = (await Promise.all(repayEvents.map(e => provider.getBlock(e.blockNumber)))).map(block => block.timestamp);
+  return repayEvents.map((event, i) => {
+    return {
+      type: 'repay',
+      txHash: event.transactionHash.toLowerCase(),
+      blockNumber: event.blockNumber,
+      asset: 'EUROs',
+      vaultAddress: event.vaultAddress.toLowerCase(),
+      amount: event.args.amount.toString(),
+      amountDec: 18,
+      timestamp: timestamps[i]
     }
-  }
-  return repays;
-}
+  });
+};
 
 const getLiquidations = async (smartVaultManagerContract, provider) => {
   try {
@@ -269,7 +268,7 @@ const getLiquidations = async (smartVaultManagerContract, provider) => {
         amountDec: 0,
         timestamp: (await provider.getBlock(event.blockNumber)).timestamp
       });
-  
+
       const previousBlock = event.blockNumber - 1;
       liquidations.push({
         type: 'pre-liquidation',
@@ -285,53 +284,107 @@ const getLiquidations = async (smartVaultManagerContract, provider) => {
     return liquidations;
   } catch (e) {
     console.log(e);
-    console.log('retrying liquidations')
+    console.log('retrying liquidations');
     return await getLiquidations(smartVaultManagerContract, provider);
   }
-}
+};
 
-// const getCreations = async (smartVaultManagerContract, provider) => {
-//   const creations = [];
-//   const filter = withBlockLimits(smartVaultManagerContract.filters.VaultDeployed());
+const getCreations = async (smartVaultManagerContract, provider) => {
+  try {
+    const filter = withBlockLimits(smartVaultManagerContract.filters.VaultDeployed());
+    const creationEvents = await smartVaultManagerContract.queryFilter(filter, startBlock, endBlock);
+    const timestamps = (await Promise.all(creationEvents.map(e => provider.getBlock(e.blockNumber)))).map(block => block.timestamp);
+    return creationEvents.map((event, i) => {
+      return {
+        type: 'creation',
+        txHash: event.transactionHash.toLowerCase(),
+        blockNumber: event.blockNumber,
+        asset: 'n/a',
+        vaultAddress: event.args.vaultAddress.toLowerCase(),
+        amount: '0',
+        amountDec: 0,
+        timestamp: timestamps[i]
+      }
+    });
+  } catch (e) {
+    console.log(e);
+    console.log('retrying creations');
+    return await getCreations(smartVaultManagerContract, provider);
+  }
+};
 
-//   const creationEvents = await smartVaultManagerContract.queryFilter(filter, startBlock, endBlock);
-//   for (let i = 0; i < creationEvents.length; i++) {
-//     const event = creationEvents[i];
-//     creations.push({
-//       type: 'liquidation',
-//       txHash: event.transactionHash.toLowerCase(),
-//       blockNumber: event.blockNumber,
-//       asset: 'n/a',
-//       vaultAddress: event.args.vaultAddress.toLowerCase(),
-//       amount: '0',
-//       amountDec: 0,
-//       timestamp: (await provider.getBlock(event.blockNumber)).timestamp
-//     });
-//   }
-//   return creations;
-// }
+const getVaultAddressForTokenId = async (tokenId, wallet, network) => {
+  const smartVaultIndex = (await getContract(network.name, 'SmartVaultIndex')).connect(wallet);
+  return (await smartVaultIndex.getVaultAddress(tokenId)).toLowerCase();
+};
+
+const getTransfers = async (smartVaultManagerContract, provider, wallet, network) => {
+  try {
+    const filter = withBlockLimits(smartVaultManagerContract.filters.Transfer());
+    const transferEvents = (await smartVaultManagerContract.queryFilter(filter, startBlock, endBlock))
+      .filter(event => event.args.from !== ethers.constants.AddressZero);
+    const vaultAddresses = await Promise.all(transferEvents.map(e => getVaultAddressForTokenId(e.args.tokenId.toString(), wallet, network)))
+    const timestamps = (await Promise.all(transferEvents.map(e => provider.getBlock(e.blockNumber)))).map(block => block.timestamp);
+    return transferEvents.map((event, i) => {
+      return {
+        type: 'transfer',
+        txHash: event.transactionHash.toLowerCase(),
+        blockNumber: event.blockNumber,
+        asset: 'n/a',
+        vaultAddress: vaultAddresses[i],
+        amount: '0',
+        amountDec: 0,
+        timestamp: timestamps[i]
+      }
+    });
+  } catch (e) {
+    console.log(e);
+    console.log('retrying transfers');
+    return await getTransfers(smartVaultManagerContract, provider, wallet, network);
+  }
+};
 
 const getTs = _ => {
   return Math.floor(new Date() / 1000);
-}
+};
 
 const setStartBlock = async _ => {
   await redis.connect();
   const lastIndexed = await redis.get(LATEST_INDEXED_BLOCK_KEY);
-  startBlock = lastIndexed ? parseInt(lastIndexed) : SMART_VAULT_LAUNCH_BLOCK;
   await redis.disconnect();
-}
+  startBlock = lastIndexed ? parseInt(lastIndexed) + 1 : SMART_VAULT_LAUNCH_BLOCK;
+};
 
 const setEndBlock = async provider => {
-  endBlock = await provider.getBlockNumber();
-}
+  const blockDiffLimit = 10_000;
+  const latest = await provider.getBlockNumber();
+  if (latest - startBlock > blockDiffLimit) {
+    endBlock = startBlock + blockDiffLimit;
+  } else {
+    endBlock = latest;
+  }
+};
 
 const getAcceptedERC20s = async (network, wallet) => {
   return (await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens())
     .filter(token => token.addr !== ethers.constants.AddressZero);
-}
+};
 
-const saveToRedis = async transactions => {
+const setTokenDecs = tokens => {
+  tokenDecs[ethers.utils.formatBytes32String('ETH')] = 18;
+  tokens.forEach(token => {
+    tokenDecs[token.symbol] = token.dec;
+  });
+};
+
+const getIndexedVaults = async _ => {
+  await redis.connect();
+  const vaults = await redis.SMEMBERS(VAULT_ADDRESSES_KEY);
+  await redis.disconnect();
+  return vaults;
+};
+
+const saveToRedis = async (transactions, vaults) => {
   // SCHEMA:
   // key: 'vaultTxs:0x...'
   // score: timestamp
@@ -343,8 +396,13 @@ const saveToRedis = async transactions => {
     const transaction = transactions[i];
     const key = `vaultTxs:${transaction.vaultAddress}`;
     const score = transaction.timestamp;
-    const value = `${transaction.type}:${transaction.txHash}:${transaction.blockNumber}:${transaction.asset}:${transaction.amount}:${transaction.amountDec}:${transaction.minted}:${transaction.totalCollateralValue}`
-    redisTx = redisTx.ZADD(key, [{score, value}]);
+    const value = `${transaction.type}:${transaction.txHash}:${transaction.blockNumber}:${transaction.asset}:${transaction.amount}:${transaction.amountDec}:${transaction.minted}:${transaction.totalCollateralValue}`;
+    redisTx = redisTx.ZADD(key, [{ score, value }]);
+  }
+
+  if (vaults.length > 0) {
+    redisTx = redisTx
+      .SADD(VAULT_ADDRESSES_KEY, vaults.map(addr => addr.toLowerCase()));
   }
 
   await redis.connect();
@@ -352,54 +410,46 @@ const saveToRedis = async transactions => {
     .SET(LATEST_INDEXED_BLOCK_KEY, endBlock)
     .EXEC();
   await redis.disconnect();
-}
-
-const setTokenDecs = tokens => {
-  tokenDecs[ethers.utils.formatBytes32String('ETH')] = 18;
-  tokens.forEach(token => {
-    tokenDecs[token.symbol] = token.dec;
-  });
-}
+};
 
 const indexVaultTransactions = async _ => {
-  try {
-    const startTs = getTs();
-    const network = getNetwork('arbitrum');
-    const { wallet, provider } = getWallet(network);
-    await setStartBlock();
-    await setEndBlock(provider);
-    console.log(`indexing transactions from block ${startBlock} to ${endBlock} ...`);
-    const smartVaultManagerContract = (await getContract(network.name, 'SmartVaultManager')).connect(wallet);
-    const erc20Tokens = await getAcceptedERC20s(network, wallet);
-    setTokenDecs(erc20Tokens);
-    const vaults = await getVaultAddresses(wallet, network);
-    const transactions = await addVaultStatus((await Promise.all([
-      getERC20DepositsForVaults(vaults, erc20Tokens, wallet, provider),
-      getAllEthDeposits(vaults),
-      getWithdrawals(vaults, wallet, provider),
-      getBorrows(vaults, wallet, provider),
-      getRepays(vaults, wallet, provider),
-      getLiquidations(smartVaultManagerContract, provider)
-    ])).flat());
-    await saveToRedis(transactions);
-    const endTs = getTs();
-    console.log(`indexed transactions (${endTs - startTs}s)`)
-  } catch (e) {
-    console.error(e);
-    // try again - rpc issues can be erratic
-    await indexVaultTransactions();
-  }
-}
+  const startTs = getTs();
+  const network = getNetwork('arbitrum');
+  const { wallet, provider } = getWallet(network);
+  await setStartBlock();
+  await setEndBlock(provider);
+  console.log(`indexing transactions from block ${startBlock} to ${endBlock} ...`);
+  const smartVaultManagerContract = (await getContract(network.name, 'SmartVaultManager')).connect(wallet);
+  const erc20Tokens = await getAcceptedERC20s(network, wallet);
+  setTokenDecs(erc20Tokens);
+  const vaultCreations = await getCreations(smartVaultManagerContract, provider);
+  const unindexedVaults = vaultCreations.map(event => event.vaultAddress);
+  const vaults = [... await getIndexedVaults(), ...unindexedVaults];
+  const transactions = await addVaultStatus(([... await Promise.all([
+    getERC20DepositsForVaults(vaults, erc20Tokens, wallet, provider),
+    getAllEthDeposits(vaults),
+    getWithdrawals(vaults, wallet, provider),
+    getBorrows(vaults, wallet, provider),
+    getRepays(vaults, wallet, provider),
+    getLiquidations(smartVaultManagerContract, provider),
+    getTransfers(smartVaultManagerContract, provider, wallet, network)
+  ]), ...vaultCreations]).flat());
+  await saveToRedis(transactions, unindexedVaults);
+  const endTs = getTs();
+  console.log(`indexed transactions (${endTs - startTs}s)`);
+};
 
 const scheduleVaultTransactionIndexing = async _ => {
-  const job = schedule.scheduleJob('2,32 * * * *', async _ => {
-    await indexVaultTransactions();
+  let running = false;
+  schedule.scheduleJob('* * * * *', async _ => {
+    if (!running) {
+      running = true;
+      await indexVaultTransactions();
+      running = false;
+    }
   });
-  job.on('error', err => {
-    console.log(err);
-  });
-}
+};
 
 module.exports = {
   scheduleVaultTransactionIndexing
-}
+};
