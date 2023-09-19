@@ -75,6 +75,7 @@ const getDepositsForERC20 = async (vaults, token, wallet) => {
 };
 
 const getERC20DepositsForVaults = async (vaults, tokens, wallet, provider) => {
+  if (vaults.length === 0) return [];
   const depositEvents = (await Promise.all(tokens.map(token => getDepositsForERC20(vaults, token, wallet)))).flat();
   const timestamps = (await Promise.all(depositEvents.map(e => provider.getBlock(e.blockNumber)))).map(block => block.timestamp);
   return depositEvents.map((event, i) => {
