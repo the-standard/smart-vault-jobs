@@ -9,7 +9,7 @@ const { scheduleVaultTransactionIndexing } = require('./src/transactions');
 const port = process.env.PORT || 3000;
 
 schedulePricingIndexing();
-scheduleStatIndexing();
+// scheduleStatIndexing();
 scheduleLiquidation();
 scheduleIndexYieldData();
 scheduleVaultTransactionIndexing();
