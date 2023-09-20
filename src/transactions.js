@@ -69,7 +69,7 @@ const getDepositsForERC20 = async (vaults, token, wallet) => {
     });
   } catch (e) {
     console.log(e);
-    console.log(`retrying deposits ${token}`);
+    console.log(`retrying deposits ${ethers.utils.parseBytes32String(token.symbol)}`);
     return await getDepositsForERC20(vaults, token, wallet);
   }
 };
