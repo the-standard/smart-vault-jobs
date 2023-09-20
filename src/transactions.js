@@ -86,7 +86,7 @@ const getERC20DepositsForVaults = async (vaults, tokens, wallet, provider) => {
       asset: event.tokenSymbol,
       vaultAddress: event.args.to.toLowerCase(),
       amount: event.args.value.toString(),
-      amountDec: event.tokenDec,
+      assetDec: event.tokenDec,
       timestamp: timestamps[i]
     }
   });
@@ -127,7 +127,7 @@ const vaultEthDeposits = async (vault) => {
       asset: 'ETH',
       vaultAddress: vault.toLowerCase(),
       amount: tx.value,
-      amountDec: 18,
+      assetDec: 18,
       timestamp: tx.timeStamp
     };
   });
@@ -178,7 +178,7 @@ const getWithdrawals = async (vaults, wallet, provider) => {
       asset: ethers.utils.parseBytes32String(event.args.symbol),
       vaultAddress: event.vaultAddress.toLowerCase(),
       amount: event.args.amount.toString(),
-      amountDec: tokenDecs[event.args.symbol],
+      assetDec: tokenDecs[event.args.symbol],
       timestamp: timestamps[i]
     }
   });
@@ -212,7 +212,7 @@ const getBorrows = async (vaults, wallet, provider) => {
       asset: 'EUROs',
       vaultAddress: event.vaultAddress.toLowerCase(),
       amount: event.args.amount.toString(),
-      amountDec: 18,
+      assetDec: 18,
       timestamp: timestamps[i]
     }
   });
@@ -246,7 +246,7 @@ const getRepays = async (vaults, wallet, provider) => {
       asset: 'EUROs',
       vaultAddress: event.vaultAddress.toLowerCase(),
       amount: event.args.amount.toString(),
-      amountDec: 18,
+      assetDec: 18,
       timestamp: timestamps[i]
     }
   });
@@ -266,7 +266,7 @@ const getLiquidations = async (smartVaultManagerContract, provider) => {
         asset: 'n/a',
         vaultAddress: event.args.vaultAddress.toLowerCase(),
         amount: '0',
-        amountDec: 0,
+        assetDec: 0,
         timestamp: (await provider.getBlock(event.blockNumber)).timestamp
       });
 
@@ -278,7 +278,7 @@ const getLiquidations = async (smartVaultManagerContract, provider) => {
         asset: 'n/a',
         vaultAddress: event.args.vaultAddress.toLowerCase(),
         amount: '0',
-        amountDec: 0,
+        assetDec: 0,
         timestamp: (await provider.getBlock(previousBlock)).timestamp
       });
     }
@@ -303,7 +303,7 @@ const getCreations = async (smartVaultManagerContract, provider) => {
         asset: 'n/a',
         vaultAddress: event.args.vaultAddress.toLowerCase(),
         amount: '0',
-        amountDec: 0,
+        assetDec: 0,
         timestamp: timestamps[i]
       }
     });
@@ -334,7 +334,7 @@ const getTransfers = async (smartVaultManagerContract, provider, wallet, network
         asset: 'n/a',
         vaultAddress: vaultAddresses[i],
         amount: '0',
-        amountDec: 0,
+        assetDec: 0,
         timestamp: timestamps[i]
       }
     });
@@ -389,15 +389,16 @@ const saveToRedis = async (transactions, vaults) => {
   // SCHEMA:
   // key: 'vaultTxs:0x...'
   // score: timestamp
-  // value: 'type:hash:blockNo:asset:amount:amountDec:minted:collateralValue'
+  // value: 'type:hash:blockNo:asset:amount:assetDec:minted:collateralValue'
   // e.g. 'deposit:0x8ae26a528861d3e6c08d4331885eaba2d1b5b55fc540234fc9b8c9c198a0d429:124132949:PAXG:8000000000000000:18:136175000000000000000:181087962079756018667'
+  const schema = ['type', 'txHash', 'blockNumber', 'asset', 'amount', 'assetDec', 'minted', 'totalCollateralValue']
 
   let redisTx = await redis.MULTI();
   for (let i = 0; i < transactions.length; i++) {
     const transaction = transactions[i];
     const key = `vaultTxs:${transaction.vaultAddress}`;
     const score = transaction.timestamp;
-    const value = `${transaction.type}:${transaction.txHash}:${transaction.blockNumber}:${transaction.asset}:${transaction.amount}:${transaction.amountDec}:${transaction.minted}:${transaction.totalCollateralValue}`;
+    const value = schema.map(key => transaction[key]).join(':');
     redisTx = redisTx.ZADD(key, [{ score, value }]);
   }
 
