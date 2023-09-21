@@ -16,10 +16,19 @@ redis.on('error', err => console.log('Redis Client Error', err));
 
 let wallet;
 
+const getPricingData = async (networkName, chainlinkAddress) => {
+  try {
+    const chainlinkContract = await getContract(networkName, 'Chainlink', chainlinkAddress);
+    return await chainlinkContract.connect(wallet).latestRoundData();
+  } catch (e) {
+    console.log(e);
+    return await getPricingData(networkName, chainlinkAddress);
+  }
+}
+
 const addNewPrice = async (networkName, token, ts) => {
   const symbol = ethers.utils.parseBytes32String(token.symbol);
-  const chainlinkContract = await getContract(networkName, 'Chainlink', token.clAddr);
-  const data = await chainlinkContract.connect(wallet).latestRoundData();
+  const data = await getPricingData(networkName, token.clAddr);
   await redis.connect();
   await redis.MULTI()
           .SADD(`tokens:${networkName}`, symbol)
@@ -27,6 +36,15 @@ const addNewPrice = async (networkName, token, ts) => {
           .ZREMRANGEBYRANK(`prices:${networkName}:${symbol}`, 0, -49)
           .EXEC();
   await redis.disconnect();
+}
+
+const getTokensForNetwork = async networkName => {
+  try {
+    return await (await getContract(networkName, 'TokenManager')).connect(wallet).getAcceptedTokens();
+  } catch (e) {
+    console.log(e);
+    return await getTokensForNetwork(networkName)
+  }
 }
 
 const schedulePricingIndexing = async _ => {
@@ -38,7 +56,7 @@ const schedulePricingIndexing = async _ => {
       const provider = new ethers.getDefaultProvider(network.rpc);
       wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
       const ts = Math.floor(new Date() / 1000);
-      const tokens = await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens();
+      const tokens = await getTokensForNetwork(network.name);
       for (let i = 0; i < tokens.length; i++) {
         await addNewPrice(network.name, tokens[i], ts);
       }
