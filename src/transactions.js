@@ -367,8 +367,13 @@ const setEndBlock = async provider => {
 };
 
 const getAcceptedERC20s = async (network, wallet) => {
-  return (await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens())
-    .filter(token => token.addr !== ethers.constants.AddressZero);
+  try {
+    return (await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens())
+      .filter(token => token.addr !== ethers.constants.AddressZero);
+  } catch (e) {
+    console.log(e);
+    return await getAcceptedERC20s(network, wallet);
+  }
 };
 
 const setTokenDecs = tokens => {
