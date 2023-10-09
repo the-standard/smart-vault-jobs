@@ -93,44 +93,48 @@ const getERC20DepositsForVaults = async (vaults, tokens, wallet, provider) => {
 };
 
 const allTransactionsFor = async vault => {
-  try {
-    const url = `https://api.arbiscan.io/api?module=account&action=txlist&address=${vault}&startblock=${startBlock}&endBlock=${endBlock}&sort=asc&apikey=${process.env.ARBISCAN_KEY}`;
-    return new Promise(resolve => {
-      https.get(url, res => {
-        let json = '';
+  const url = `https://api.arbiscan.io/api?module=account&action=txlist&address=${vault}&startblock=${startBlock}&endBlock=${endBlock}&sort=asc&apikey=${process.env.ARBISCAN_KEY}`;
+  return new Promise((resolve, reject) => {
+    https.get(url, res => {
+      let json = '';
 
-        res.on('data', data => {
-          json += data;
-        });
-
-        res.on('end', _ => {
-          resolve(JSON.parse(json));
-        });
+      res.on('data', data => {
+        json += data;
       });
+
+      res.on('end', _ => {
+        try {
+          resolve(JSON.parse(json));
+        } catch(e) {
+          reject(e);
+        }
+      });
+    });
+  });
+};
+
+const vaultEthDeposits = async (vault) => {
+  try {
+    const allTransactions = await allTransactionsFor(vault);
+    const ethDeposits = allTransactions.result.filter(tx => tx.value !== '0');
+    return ethDeposits.map(tx => {
+      const deposit = tx.to.toLowerCase() === vault.toLowerCase();
+      return {
+        type: deposit ? 'deposit' : 'withdrawal',
+        txHash: tx.hash.toLowerCase(),
+        blockNumber: parseInt(tx.blockNumber),
+        asset: 'ETH',
+        vaultAddress: vault.toLowerCase(),
+        amount: tx.value,
+        assetDec: 18,
+        timestamp: tx.timeStamp
+      };
     });
   } catch (e) {
     console.log(e);
     console.log(`retrying eth deposits ${vault}`);
-    return await allTransactionsFor(vault);
+    return await vaultEthDeposits(vault)
   }
-};
-
-const vaultEthDeposits = async (vault) => {
-  const allTransactions = await allTransactionsFor(vault);
-  const ethDeposits = allTransactions.result.filter(tx => tx.value !== '0');
-  return ethDeposits.map(tx => {
-    const deposit = tx.to.toLowerCase() === vault.toLowerCase();
-    return {
-      type: deposit ? 'deposit' : 'withdrawal',
-      txHash: tx.hash.toLowerCase(),
-      blockNumber: parseInt(tx.blockNumber),
-      asset: 'ETH',
-      vaultAddress: vault.toLowerCase(),
-      amount: tx.value,
-      assetDec: 18,
-      timestamp: tx.timeStamp
-    };
-  });
 };
 
 const requestRateLimit = async ms => {
