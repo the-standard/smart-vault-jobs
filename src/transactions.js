@@ -7,6 +7,8 @@ const { getArchiveNode, getNetwork } = require("./networks");
 const { getWallet } = require('./wallet');
 const { getContract } = require('./contractFactory');
 
+const BANNED = ['0x7704A19Cd172E149a378AD1ff1c6428B84Dc5355'.toLowerCase(), '0x9c14b73d452dfc9110c18eb3c2164896962ae163'.toLowerCase()]
+
 const contracts = JSON.parse(fs.readFileSync('contracts.json', { encoding: 'utf8' }));
 const redisHost = process.env.REDIS_HOST || '127.0.0.1';
 const redisPort = process.env.REDIS_PORT || '6379';
@@ -434,7 +436,7 @@ const indexVaultTransactions = async _ => {
   const erc20Tokens = await getAcceptedERC20s(network, wallet);
   setTokenDecs(erc20Tokens);
   const vaultCreations = await getCreations(smartVaultManagerContract, provider);
-  const unindexedVaults = vaultCreations.map(event => event.vaultAddress);
+  const unindexedVaults = vaultCreations.map(event => event.vaultAddress).filter(address => !BANNED.includes(address.toLowerCase()));
   const vaults = [... await getIndexedVaults(), ...unindexedVaults];
   const transactions = await addVaultStatus(([... await Promise.all([
     getERC20DepositsForVaults(vaults, erc20Tokens, wallet, provider),
