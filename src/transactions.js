@@ -44,6 +44,7 @@ const getStatusAt = async (tx, wallet) => {
 }
 
 const addVaultStatus = async (transactions) => {
+  transactions = transactions.filter(tx => !BANNED.includes(tx.vaultAddress.toLowerCase()));
   const transactionsWithStatus = [];
   const { wallet } = getWallet(getArchiveNode('arbitrum'));
   const statuses = await Promise.all(transactions.map(tx => getStatusAt(tx, wallet)))
@@ -435,8 +436,8 @@ const indexVaultTransactions = async _ => {
   const smartVaultManagerContract = (await getContract(network.name, 'SmartVaultManager')).connect(wallet);
   const erc20Tokens = await getAcceptedERC20s(network, wallet);
   setTokenDecs(erc20Tokens);
-  const vaultCreations = await getCreations(smartVaultManagerContract, provider);
-  const unindexedVaults = vaultCreations.map(event => event.vaultAddress).filter(address => !BANNED.includes(address.toLowerCase()));
+  const vaultCreations = (await getCreations(smartVaultManagerContract, provider));
+  const unindexedVaults = vaultCreations.map(event => event.vaultAddress);
   const vaults = [... await getIndexedVaults(), ...unindexedVaults];
   const transactions = await addVaultStatus(([... await Promise.all([
     getERC20DepositsForVaults(vaults, erc20Tokens, wallet, provider),
