@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 
 schedulePricingIndexing();
 // scheduleStatIndexing();
-// scheduleLiquidation();
+scheduleLiquidation();
 scheduleIndexYieldData();
 scheduleVaultTransactionIndexing();
 
