@@ -5,19 +5,20 @@ const { getNetwork } = require('./networks');
 
 const scheduleLiquidation = async _ => {
   const network = getNetwork('arbitrum');
-  schedule.scheduleJob('*/5 * * * *', async _ => {
-    console.log('checking for liquidations ...')
+  const manager = await getContract(network.name, 'SmartVaultManager');
+  let tokenId = 1;
+  schedule.scheduleJob('* * * * *', async _ => {
+    const provider = new ethers.getDefaultProvider(network.rpc)
+    const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+    console.log(`attempting liquidation vault #${tokenId}`);
     try {
-      const provider = new ethers.getDefaultProvider(network.rpc)
-      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-      if ((await provider.getBalance(wallet.address)) < ethers.utils.parseEther('0.01')) {
-        console.error('error: Liquidator wallet balance too low');
-      }
-      await (await getContract(network.name, 'SmartVaultManager')).connect(wallet).liquidateVaults()
-      console.log(network.name, 'vault-liquidated');
-    } catch(e) {
-      console.log(network.name, e.reason)
+      await manager.connect(wallet).liquidateVault(tokenId);
+      console.log(`liquidated: ${tokenId}`);
+    } catch (e) {
+      console.log(`liquidation attempt failed`);
     }
+    tokenId++;
+    if (tokenId > await manager.connect(wallet).totalSupply()) tokenId = 1;
   });
 }
 
