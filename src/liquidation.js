@@ -17,20 +17,21 @@ const scheduleLiquidation = async _ => {
   let tokenId = 1;
   let running = false;
   schedule.scheduleJob('* * * * *', async _ => {
-    if (running) return;
-    running = true;
-    const provider = new ethers.getDefaultProvider(network.rpc)
-    const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-    console.log(`attempting liquidation vault #${tokenId}`);
-    try {
-      await manager.connect(wallet).liquidateVault(tokenId);
-      console.log(`liquidated: ${tokenId}`);
-    } catch (e) {
-      console.log(`liquidation attempt failed`);
+    if (!running) {
+      running = true;
+      const provider = new ethers.getDefaultProvider(network.rpc)
+      const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+      console.log(`attempting liquidation vault #${tokenId}`);
+      try {
+        await manager.connect(wallet).liquidateVault(tokenId);
+        console.log(`liquidated: ${tokenId}`);
+      } catch (e) {
+        console.log(`liquidation attempt failed`);
+      }
+      tokenId++;
+      if (tokenId > await getVaultSupply()) tokenId = 1;
+      running = false;
     }
-    tokenId++;
-    if (tokenId > await getVaultSupply()) tokenId = 1;
-    running = false;
   });
 }
 
