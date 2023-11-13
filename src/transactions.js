@@ -36,8 +36,7 @@ const getStatusAt = async (tx, wallet) => {
     const vault = new ethers.Contract(tx.vaultAddress, contracts.SmartVault, wallet);
     return await vault.status({ blockTag: tx.blockNumber });
   } catch (e) {
-    console.log(e);
-    console.log(`getting status for ${tx.vaultAddress} at ${tx.blockNumber}`);
+    return await getStatusAt(tx, wallet);
   }
 }
 
@@ -68,8 +67,6 @@ const getDepositsForERC20 = async (vaults, token, wallet) => {
       }
     });
   } catch (e) {
-    console.log(e);
-    console.log(`retrying deposits ${ethers.utils.parseBytes32String(token.symbol)}`);
     return await getDepositsForERC20(vaults, token, wallet);
   }
 };
@@ -131,8 +128,6 @@ const vaultEthDeposits = async (vault) => {
       };
     });
   } catch (e) {
-    console.log(e);
-    console.log(`retrying eth deposits ${vault}`);
     return await vaultEthDeposits(vault)
   }
 };
@@ -165,8 +160,6 @@ const getVaultWithdrawals = async (vault, wallet) => {
       }
     });
   } catch (e) {
-    console.log(e);
-    console.log(`retrying withdrawals ${vault}`);
     return await getVaultWithdrawals(vault, wallet);
   }
 };
@@ -199,8 +192,6 @@ const getVaultBorrows = async (vault, wallet) => {
       }
     });
   } catch (e) {
-    console.log(e);
-    console.log(`retrying borrows ${vault}`);
     return await getVaultBorrows(vault, wallet);
   }
 };
@@ -233,8 +224,6 @@ const getVaultRepays = async (vault, wallet) => {
       }
     });
   } catch (e) {
-    console.log(e);
-    console.log(`retrying repays ${vault}`);
     return await getVaultRepays(vault, wallet);
   }
 };
@@ -288,8 +277,6 @@ const getLiquidations = async (smartVaultManagerContract, provider) => {
     }
     return liquidations;
   } catch (e) {
-    console.log(e);
-    console.log('retrying liquidations');
     return await getLiquidations(smartVaultManagerContract, provider);
   }
 };
@@ -312,8 +299,6 @@ const getCreations = async (smartVaultManagerContract, provider) => {
       }
     });
   } catch (e) {
-    console.log(e);
-    console.log('retrying creations');
     return await getCreations(smartVaultManagerContract, provider);
   }
 };
@@ -343,8 +328,6 @@ const getTransfers = async (smartVaultManagerContract, provider, wallet, network
       }
     });
   } catch (e) {
-    console.log(e);
-    console.log('retrying transfers');
     return await getTransfers(smartVaultManagerContract, provider, wallet, network);
   }
 };
@@ -375,7 +358,6 @@ const getAcceptedERC20s = async (network, wallet) => {
     return (await (await getContract(network.name, 'TokenManager')).connect(wallet).getAcceptedTokens())
       .filter(token => token.addr !== ethers.constants.AddressZero);
   } catch (e) {
-    console.log(e);
     return await getAcceptedERC20s(network, wallet);
   }
 };
@@ -452,7 +434,7 @@ const indexVaultTransactions = async _ => {
 
 const scheduleVaultTransactionIndexing = async _ => {
   let running = false;
-  schedule.scheduleJob('*/5 * * * *', async _ => {
+  schedule.scheduleJob('* * * * *', async _ => {
     if (!running) {
       running = true;
       await indexVaultTransactions();
