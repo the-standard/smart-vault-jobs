@@ -3,7 +3,7 @@ const { getContract } = require("./contractFactory");
 const { ethers } = require('ethers');
 const { getNetwork } = require('./networks');
 
-const getVaultSupply = async _ => {
+const getVaultSupply = async wallet => {
   try {
     return await manager.connect(wallet).totalSupply()
   } catch (_) {
@@ -29,7 +29,7 @@ const scheduleLiquidation = async _ => {
         console.log(`liquidation attempt failed`);
       }
       tokenId++;
-      if (tokenId > await getVaultSupply()) tokenId = 1;
+      if (tokenId > await getVaultSupply(wallet)) tokenId = 1;
       running = false;
     }
   });
