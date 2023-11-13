@@ -16,7 +16,7 @@ const scheduleLiquidation = async _ => {
   const manager = await getContract(network.name, 'SmartVaultManager');
   let tokenId = 1;
   let running = false;
-  schedule.scheduleJob('* * * * *', async _ => {
+  schedule.scheduleJob('*/15 * * * * *', async _ => {
     if (!running) {
       running = true;
       const provider = new ethers.getDefaultProvider(network.rpc)
