@@ -7,7 +7,7 @@ const getVaultSupply = async wallet => {
   try {
     return await manager.connect(wallet).totalSupply()
   } catch (_) {
-    return await getVaultSupply();
+    return await getVaultSupply(wallet);
   }
 }
 
