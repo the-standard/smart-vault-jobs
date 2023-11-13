@@ -3,11 +3,22 @@ const { getContract } = require("./contractFactory");
 const { ethers } = require('ethers');
 const { getNetwork } = require('./networks');
 
+const getVaultSupply = async _ => {
+  try {
+    return await manager.connect(wallet).totalSupply()
+  } catch (_) {
+    return await getVaultSupply();
+  }
+}
+
 const scheduleLiquidation = async _ => {
   const network = getNetwork('arbitrum');
   const manager = await getContract(network.name, 'SmartVaultManager');
   let tokenId = 1;
+  let running = false;
   schedule.scheduleJob('* * * * *', async _ => {
+    if (running) return;
+    running = true;
     const provider = new ethers.getDefaultProvider(network.rpc)
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
     console.log(`attempting liquidation vault #${tokenId}`);
@@ -18,7 +29,8 @@ const scheduleLiquidation = async _ => {
       console.log(`liquidation attempt failed`);
     }
     tokenId++;
-    if (tokenId > await manager.connect(wallet).totalSupply()) tokenId = 1;
+    if (tokenId > await getVaultSupply()) tokenId = 1;
+    running = false;
   });
 }
 
