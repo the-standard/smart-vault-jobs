@@ -56,7 +56,7 @@ const fetchPrices = async (networkName, wallet) => {
 };
 
 const scheduleLiquidationPoolData = async _ => {
-  schedule.scheduleJob('10 * * * *', async _ => {
+  schedule.scheduleJob('18 * * * *', async _ => {
     console.log('indexing liquidation pool snapshots')
     const network = getNetwork('arbitrum');
     const provider = new getDefaultProvider(network.rpc);
