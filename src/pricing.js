@@ -1,6 +1,5 @@
 const schedule = require('node-schedule');
 const { createClient } = require('redis');
-require('ethers');
 const { getContract } = require('./contractFactory');
 const ethers = require('ethers');
 const { getNetworks } = require('./networks');
