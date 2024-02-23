@@ -93,6 +93,7 @@ const scheduleLiquidationPoolData = async _ => {
           i++;
         }
       } catch {
+        console.log('indexed liquidation pool snapshots');
         break;
       }
     }
