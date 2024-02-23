@@ -5,7 +5,7 @@ const { parseBytes32String, formatUnits } = utils;
 const Pool = require('pg-pool');
 const { getNetwork } = require("./networks");
 const { getContract } = require('./contractFactory');
-const { parseEther, formatEther, parseUnits } = require('ethers/lib/utils');
+const { formatEther, parseUnits } = require('ethers/lib/utils');
 const { WALLET_PRIVATE_KEY } = process.env;
 
 const EUROS_ADDRESS = '0x643b34980E635719C15a2D4ce69571a258F940E9';
@@ -56,7 +56,7 @@ const fetchPrices = async (networkName, wallet) => {
 };
 
 const scheduleLiquidationPoolData = async _ => {
-  schedule.scheduleJob('18 * * * *', async _ => {
+  schedule.scheduleJob('22 * * * *', async _ => {
     console.log('indexing liquidation pool snapshots')
     const network = getNetwork('arbitrum');
     const provider = new getDefaultProvider(network.rpc);
