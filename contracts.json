@@ -122,19 +122,6 @@
             "type": "event"
         },
         {
-            "inputs": [
-                {
-                    "internalType": "uint256",
-                    "name": "_tokenId",
-                    "type": "uint256"
-                }
-            ],
-            "name": "liquidateVault",
-            "outputs": [],
-            "stateMutability": "nonpayable",
-            "type": "function"
-        },
-        {
             "anonymous": false,
             "inputs": [
                 {
@@ -428,6 +415,107 @@
             "outputs": [
                 {
                     "internalType": "address payable",
+                    "name": "",
+                    "type": "address"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ],
+    "LiquidationPool": [
+        {
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "_holder",
+                    "type": "address"
+                }
+            ],
+            "name": "position",
+            "outputs": [
+                {
+                    "components": [
+                        {
+                            "internalType": "address",
+                            "name": "holder",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "TST",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "EUROs",
+                            "type": "uint256"
+                        }
+                    ],
+                    "internalType": "struct LiquidationPool.Position",
+                    "name": "_position",
+                    "type": "tuple"
+                },
+                {
+                    "components": [
+                        {
+                            "internalType": "uint256",
+                            "name": "pendingUntil",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "TST",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "EUROs",
+                            "type": "uint256"
+                        }
+                    ],
+                    "internalType": "struct LiquidationPool.PendingStake",
+                    "name": "_pendingStake",
+                    "type": "tuple"
+                },
+                {
+                    "components": [
+                        {
+                            "internalType": "bytes32",
+                            "name": "symbol",
+                            "type": "bytes32"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "amount",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint8",
+                            "name": "dec",
+                            "type": "uint8"
+                        }
+                    ],
+                    "internalType": "struct LiquidationPool.Reward[]",
+                    "name": "_rewards",
+                    "type": "tuple[]"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "name": "holders",
+            "outputs": [
+                {
+                    "internalType": "address",
                     "name": "",
                     "type": "address"
                 }
