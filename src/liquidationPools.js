@@ -38,6 +38,7 @@ const fetchDexPrice = async address => {
       });
 
       res.on('end', _ => {
+        console.log(json)
         resolve(parseUnits(JSON.parse(json).pairs[0].priceUsd, 8).toString());
       });
     });
