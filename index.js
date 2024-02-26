@@ -12,7 +12,7 @@ schedulePricingIndexing();
 // scheduleStatIndexing();
 scheduleIndexYieldData();
 scheduleVaultTransactionIndexing();
-// scheduleLiquidationPoolData();
+scheduleLiquidationPoolData();
 
 const server = http.createServer(async (req, res) => {
   res.statusCode = 200;
