@@ -434,7 +434,7 @@ const indexVaultTransactions = async _ => {
 
 const scheduleVaultTransactionIndexing = async _ => {
   let running = false;
-  schedule.scheduleJob('*/5 * * * *', async _ => {
+  schedule.scheduleJob('*/10 * * * *', async _ => {
     if (!running) {
       running = true;
       await indexVaultTransactions();
