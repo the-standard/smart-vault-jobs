@@ -85,7 +85,7 @@ const fetchPrices = async (networkName, wallet) => {
 };
 
 const scheduleLiquidationPoolData = async _ => {
-  schedule.scheduleJob('31 * * * *', async _ => {
+  schedule.scheduleJob('56 11 * * *', async _ => {
     console.log('indexing liquidation pool snapshots')
     const network = getNetwork('arbitrum');
     const provider = new getDefaultProvider(network.rpc);
@@ -108,7 +108,6 @@ const scheduleLiquidationPoolData = async _ => {
         const now = new Date();
         const client = await pool.connect();
         try {
-          console.log(POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USERNAME, POSTGRES_PASSWORD.length)
           const query = 'INSERT INTO user_pool_snapshots (user_address,assets,snapshot_at) VALUES ($1,$2,$3);';
           const data = [
             holderAddress.toLowerCase(),
