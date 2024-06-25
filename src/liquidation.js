@@ -58,7 +58,6 @@ const getVaultManager = async _ => {
 
 const scheduleLiquidation = async _ => {
   const network = getNetwork('arbitrum');
-  console.log(`/${process.env.WEBHOOK_TOKEN}/`)
 
   // checks for undercollateralised vaults and liquidates
     schedule.scheduleJob('6,36 * * * *', async _ => {
@@ -86,7 +85,7 @@ const scheduleLiquidation = async _ => {
   });
 
   // posts liquidation info to discord
-  schedule.scheduleJob('40 * * * *', async _ => {
+  schedule.scheduleJob('10 * * * *', async _ => {
     console.log('logging liquidation info');
     const { manager, wallet, provider } = await getVaultManager();
     const EUROs = await getContract(network.name, 'EUROs');
