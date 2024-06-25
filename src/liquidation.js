@@ -83,6 +83,9 @@ const scheduleLiquidation = async _ => {
     console.log(`liquidations complete ${end - start}s`)
   });
 
+  console.log('hello');
+  console.log(process.env.WEBHOOK_TOKEN);
+
   // posts liquidation info to discord
   schedule.scheduleJob('40 * * * *', async _ => {
     console.log('logging liquidation info');
