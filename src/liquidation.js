@@ -84,11 +84,8 @@ const scheduleLiquidation = async _ => {
     console.log(`liquidations complete ${end - start}s`)
   });
 
-  console.log('hello');
-  console.log(process.env.WEBHOOK_TOKEN);
-
   // posts liquidation info to discord
-  schedule.scheduleJob('1 * * * *', async _ => {
+  schedule.scheduleJob('20 * * * *', async _ => {
     console.log('logging liquidation info');
     const { manager, wallet, provider } = await getVaultManager();
     const EUROs = await getContract(network.name, 'EUROs');
@@ -112,7 +109,7 @@ const scheduleLiquidation = async _ => {
 
     console.log(content)
   
-    await postToDiscord(content);
+    // await postToDiscord(content);
   });
 };
 
