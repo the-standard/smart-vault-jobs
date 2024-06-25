@@ -60,7 +60,6 @@ const scheduleLiquidation = async _ => {
   const network = getNetwork('arbitrum');
   console.log(`/${process.env.WEBHOOK_TOKEN}/`)
 
-
   // checks for undercollateralised vaults and liquidates
     schedule.scheduleJob('6,36 * * * *', async _ => {
     console.log('running liquidations')
