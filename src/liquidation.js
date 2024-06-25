@@ -18,8 +18,6 @@ const postToDiscord = async content => {
       content,
     });
 
-    console.log(data)
-
     const options = {
       hostname: 'discord.com',
       port: 443,
@@ -60,6 +58,8 @@ const getVaultManager = async _ => {
 
 const scheduleLiquidation = async _ => {
   const network = getNetwork('arbitrum');
+  console.log(`/${process.env.WEBHOOK_TOKEN}/`)
+
 
   // checks for undercollateralised vaults and liquidates
     schedule.scheduleJob('6,36 * * * *', async _ => {
