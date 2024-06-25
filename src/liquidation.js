@@ -84,7 +84,7 @@ const scheduleLiquidation = async _ => {
   });
 
   // posts liquidation info to discord
-  schedule.scheduleJob('10 9 * * *', async _ => {
+  schedule.scheduleJob('40 * * * *', async _ => {
     console.log('logging liquidation info');
     const { manager, wallet, provider } = await getVaultManager();
     const EUROs = await getContract(network.name, 'EUROs');
