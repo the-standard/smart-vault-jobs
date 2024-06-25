@@ -28,7 +28,6 @@ const postToDiscord = async content => {
         'Content-Length': data.length,
       },
     };
-    console.log(options.path);
 
     const req = https.request(options, (res) => {
       res.on('data', (d) => {
@@ -85,7 +84,7 @@ const scheduleLiquidation = async _ => {
   });
 
   // posts liquidation info to discord
-  schedule.scheduleJob('10 * * * *', async _ => {
+  schedule.scheduleJob('55 7 * * *', async _ => {
     console.log('logging liquidation info');
     const { manager, wallet, provider } = await getVaultManager();
     const EUROs = await getContract(network.name, 'EUROs');
