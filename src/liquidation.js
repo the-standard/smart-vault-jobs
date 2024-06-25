@@ -57,11 +57,12 @@ const getVaultManager = async _ => {
 };
 
 const scheduleLiquidation = async _ => {
+  const network = getNetwork('arbitrum');
+
   // checks for undercollateralised vaults and liquidates
-  schedule.scheduleJob('6,36 * * * *', async _ => {
+    schedule.scheduleJob('6,36 * * * *', async _ => {
     console.log('running liquidations')
     const start = Math.floor(new Date / 1000);
-    const network = getNetwork('arbitrum');
     const index = await getContract(network.name, 'SmartVaultIndex');
     const { manager, wallet } = await getVaultManager();
     const supply = Number((await getVaultSupply(wallet, manager)).toString());
@@ -87,7 +88,7 @@ const scheduleLiquidation = async _ => {
   console.log(process.env.WEBHOOK_TOKEN);
 
   // posts liquidation info to discord
-  schedule.scheduleJob('50 * * * *', async _ => {
+  schedule.scheduleJob('1 * * * *', async _ => {
     console.log('logging liquidation info');
     const { manager, wallet, provider } = await getVaultManager();
     const EUROs = await getContract(network.name, 'EUROs');
