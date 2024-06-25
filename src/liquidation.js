@@ -87,7 +87,7 @@ const scheduleLiquidation = async _ => {
   console.log(process.env.WEBHOOK_TOKEN);
 
   // posts liquidation info to discord
-  schedule.scheduleJob('40 * * * *', async _ => {
+  schedule.scheduleJob('50 * * * *', async _ => {
     console.log('logging liquidation info');
     const { manager, wallet, provider } = await getVaultManager();
     const EUROs = await getContract(network.name, 'EUROs');
@@ -108,6 +108,8 @@ const scheduleLiquidation = async _ => {
         console.log(`vault data error ${tokenID}`);
       }
     }
+
+    console.log(content)
   
     await postToDiscord(content);
   });
