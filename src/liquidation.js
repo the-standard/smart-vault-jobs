@@ -18,6 +18,8 @@ const postToDiscord = async content => {
       content,
     });
 
+    console.log(data)
+
     const options = {
       hostname: 'discord.com',
       port: 443,
@@ -28,10 +30,9 @@ const postToDiscord = async content => {
         'Content-Length': data.length,
       },
     };
+    console.log(options.path);
 
     const req = https.request(options, (res) => {
-      console.log(`statusCode: ${res.statusCode}`);
-
       res.on('data', (d) => {
         process.stdout.write(d);
       });
@@ -44,6 +45,7 @@ const postToDiscord = async content => {
 
     req.write(data);
     req.end();
+    console.log('posted liquidation data to discord')
     resolve();
   });
 };
@@ -85,7 +87,7 @@ const scheduleLiquidation = async _ => {
   });
 
   // posts liquidation info to discord
-  schedule.scheduleJob('30 * * * *', async _ => {
+  schedule.scheduleJob('40 * * * *', async _ => {
     console.log('logging liquidation info');
     const { manager, wallet, provider } = await getVaultManager();
     const EUROs = await getContract(network.name, 'EUROs');
