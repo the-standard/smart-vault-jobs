@@ -85,7 +85,7 @@ const scheduleLiquidation = async _ => {
   });
 
   // posts liquidation info to discord
-  schedule.scheduleJob('20 * * * *', async _ => {
+  schedule.scheduleJob('30 * * * *', async _ => {
     console.log('logging liquidation info');
     const { manager, wallet, provider } = await getVaultManager();
     const EUROs = await getContract(network.name, 'EUROs');
@@ -106,10 +106,8 @@ const scheduleLiquidation = async _ => {
         console.log(`vault data error ${tokenID}`);
       }
     }
-
-    console.log(content)
   
-    // await postToDiscord(content);
+    await postToDiscord(content);
   });
 };
 
