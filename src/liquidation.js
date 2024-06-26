@@ -12,10 +12,11 @@ const getVaultSupply = async (wallet, manager) => {
   }
 };
 
-const postToDiscord = async content => {
+const postToDiscord = async (content, embeds) => {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({
       content,
+      embeds
     });
 
     const options = {
@@ -93,20 +94,22 @@ const scheduleLiquidation = async _ => {
   
     const supply = Number((await getVaultSupply(wallet, manager)).toString());
     let content = `Liquidator wallet balance: **${liquidatorETHBalance} ETH**, **${liquidatorEUROsBalance} EUROs**\n--------------\n`;
+    let embeds = [];
     for (let tokenID = 1; tokenID <= supply; tokenID++) {
       try {
         const { minted, totalCollateralValue, vaultAddress } = (await manager.connect(wallet).vaultData(tokenID)).status;
         if (minted.gt(0)) {
           const collateralPercentage = totalCollateralValue.mul(100).div(minted);
           const formattedDebt = ethers.utils.formatEther(minted);
-          if (collateralPercentage.lt(125)) content += `ID: **${tokenID}**, address: **${vaultAddress}**, debt: **${formattedDebt} EUROs**, collateral: **${collateralPercentage}%**\n`;
+          const arbiscanURL = `https://arbiscan.io/address/${vaultAddress}`;
+          if (collateralPercentage.lt(125)) embeds.push({author: {name: `ID: ${tokenID}`, url: arbiscanURL}, title: vaultAddress, description: `debt: ${formattedDebt}, collateral: ${collateralPercentage}%`, url: arbiscanURL});
         }
       } catch (e) {
         console.log(`vault data error ${tokenID}`);
       }
     }
   
-    await postToDiscord(content);
+    await postToDiscord(content, embeds);
   });
 };
 
