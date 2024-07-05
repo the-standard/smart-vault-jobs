@@ -76,7 +76,7 @@ const scheduleLiquidation = async _ => {
           await RewardGateway.connect(wallet).liquidateVault(tokenID);
         }
       } catch (e) {
-        console.log('vault data error', tokenID);
+        console.log('vault liquidation error', tokenID);
       }
     }
     const end = Math.floor(new Date / 1000);
@@ -93,7 +93,7 @@ const scheduleLiquidation = async _ => {
     liquidatorEUROsBalance = ethers.utils.formatEther(await EUROs.connect(wallet).balanceOf(wallet.address));
   
     const supply = Number((await getVaultSupply(wallet, manager)).toString());
-    let content = `Liquidator wallet balance: **${liquidatorETHBalance} ETH**, **${liquidatorEUROsBalance} EUROs**\n--------------\n`;
+    let content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n---\n`;
     let embeds = [];
     for (let tokenID = 1; tokenID <= supply; tokenID++) {
       try {
