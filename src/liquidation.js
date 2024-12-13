@@ -59,31 +59,6 @@ const getVaultManager = async _ => {
 const scheduleLiquidation = async _ => {
   const network = getNetwork('arbitrum');
 
-  // checks for undercollateralised vaults and liquidates
-    schedule.scheduleJob('6,36 * * * *', async _ => {
-    console.log('running liquidations')
-    const start = Math.floor(new Date / 1000);
-    const index = await getContract(network.name, 'SmartVaultIndex');
-    const { manager, wallet } = await getVaultManager();
-    const supply = Number((await getVaultSupply(wallet, manager)).toString());
-    for (let tokenID = 1; tokenID <= supply; tokenID++) {
-      const vaultAddress = await index.connect(wallet).getVaultAddress(tokenID);
-      const vault = await getContract(network.name, 'SmartVault', vaultAddress);
-      try {
-        if (await vault.connect(wallet).undercollateralised()) {
-          console.log(`liquidating ${tokenID}`)
-          const RewardGateway = await getContract(network.name, 'RewardGateway');
-          await RewardGateway.connect(wallet).liquidateVault(tokenID);
-        }
-      } catch (e) {
-        console.log('vault liquidation error', tokenID);
-      }
-    }
-    const end = Math.floor(new Date / 1000);
-
-    console.log(`liquidations complete ${end - start}s`)
-  });
-
   // posts liquidation info to discord
   schedule.scheduleJob('55 7 * * *', async _ => {
     console.log('logging liquidation info');
