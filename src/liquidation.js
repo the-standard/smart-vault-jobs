@@ -48,13 +48,27 @@ const postToDiscord = async (content, embeds) => {
   });
 };
 
-const getVaultManager = async _ => {
-  const network = getNetwork('arbitrum');
-  const manager = await getContract(network.name, 'SmartVaultManager');
-  const provider = new ethers.getDefaultProvider(network.rpc);
-  const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-  return { manager, wallet, provider };
-};
+const liquidatableVaults = async (wallet, vaultManager) => {
+  const supply = Number((await getVaultSupply(wallet, vaultManager)).toString());
+  const embeds = []
+  for (let tokenID = 1; tokenID <= supply; tokenID++) {
+    try {
+      const { minted, totalCollateralValue, vaultAddress, vaultType } = (await vaultManager.connect(wallet).vaultData(tokenID)).status;
+      if (minted.gt(0)) {
+        const collateralPercentage = totalCollateralValue.mul(100).div(minted);
+        const arbiscanURL = `https://arbiscan.io/address/${vaultAddress}`;
+        if (collateralPercentage.lt(125)) {
+          const formattedDebt = ethers.utils.formatEther(minted);
+          const formattedVaultType = ethers.utils.parseBytes32String(vaultType);
+          embeds.push({author: {name: `ID: ${tokenID}`, url: arbiscanURL}, title: vaultAddress, description: `debt: ${formattedDebt} ${formattedVaultType}, collateral: ${collateralPercentage}%`, url: arbiscanURL});
+        }
+      }
+    } catch (e) {
+      console.log(`vault data error ${tokenID}`);
+    }
+  }
+  return embeds;
+}
 
 const scheduleLiquidation = async _ => {
   const network = getNetwork('arbitrum');
@@ -62,27 +76,25 @@ const scheduleLiquidation = async _ => {
   // posts liquidation info to discord
   schedule.scheduleJob('55 7 * * *', async _ => {
     console.log('logging liquidation info');
-    const { manager, wallet, provider } = await getVaultManager();
+    const provider = new ethers.getDefaultProvider(network.rpc);
+    const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+    const vaultManagerEUROs = await getContract(network.name, 'SmartVaultManager');
+    const vaultManagerUSDs = await getContract(network.name, 'SmartVaultManager', '0x496aB4A155C8fE359Cd28d43650fAFA0A35322Fb');
     const EUROs = await getContract(network.name, 'EUROs');
+    const USDs = await getContract(network.name, 'EUROs', '0x2Ea0bE86990E8Dac0D09e4316Bb92086F304622d');
     liquidatorETHBalance = ethers.utils.formatEther(await provider.getBalance(wallet.address));
     liquidatorEUROsBalance = ethers.utils.formatEther(await EUROs.connect(wallet).balanceOf(wallet.address));
+    liquidatorUSDsBalance = ethers.utils.formatEther(await USDs.connect(wallet).balanceOf(wallet.address));
   
-    const supply = Number((await getVaultSupply(wallet, manager)).toString());
-    let content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n---\n`;
-    let embeds = [];
-    for (let tokenID = 1; tokenID <= supply; tokenID++) {
-      try {
-        const { minted, totalCollateralValue, vaultAddress } = (await manager.connect(wallet).vaultData(tokenID)).status;
-        if (minted.gt(0)) {
-          const collateralPercentage = totalCollateralValue.mul(100).div(minted);
-          const formattedDebt = ethers.utils.formatEther(minted);
-          const arbiscanURL = `https://arbiscan.io/address/${vaultAddress}`;
-          if (collateralPercentage.lt(125)) embeds.push({author: {name: `ID: ${tokenID}`, url: arbiscanURL}, title: vaultAddress, description: `debt: ${formattedDebt}, collateral: ${collateralPercentage}%`, url: arbiscanURL});
-        }
-      } catch (e) {
-        console.log(`vault data error ${tokenID}`);
-      }
-    }
+    let content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n**${liquidatorUSDsBalance} USDs**\n---\n`;
+    const embeds = [ 
+      ... await liquidatableVaults(wallet, vaultManagerEUROs),
+      ... await liquidatableVaults(wallet, vaultManagerUSDs)
+    ]
+
+    console.log(content)
+    console.log(embeds)
+    console.log(JSON.stringify(embeds))
   
     await postToDiscord(content, embeds);
   });
