@@ -91,10 +91,6 @@ const scheduleLiquidation = async _ => {
       ... await liquidatableVaults(wallet, vaultManagerEUROs),
       ... await liquidatableVaults(wallet, vaultManagerUSDs)
     ]
-
-    console.log(content)
-    console.log(embeds)
-    console.log(JSON.stringify(embeds))
   
     await postToDiscord(content, embeds);
   });
