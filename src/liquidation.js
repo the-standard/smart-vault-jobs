@@ -60,7 +60,7 @@ const liquidatableVaults = async (wallet, vaultManager) => {
         if (collateralPercentage.lt(125)) {
           const formattedDebt = ethers.utils.formatEther(minted);
           const formattedVaultType = ethers.utils.parseBytes32String(vaultType);
-          embeds.push({author: {name: `ID: ${tokenID}`, url: arbiscanURL}, title: vaultAddress, description: `debt: ${formattedDebt} ${formattedVaultType}, collateral: ${collateralPercentage}%`, url: arbiscanURL});
+          embeds.push({author: {name: `ID: ${tokenID} ${formattedVaultType}`, url: arbiscanURL}, title: vaultAddress, description: `debt: ${formattedDebt} ${formattedVaultType}, collateral: ${collateralPercentage}%`, url: arbiscanURL});
         }
       }
     } catch (e) {
