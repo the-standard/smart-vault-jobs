@@ -95,6 +95,7 @@ const saveRedemptionData = async data => {
 
 const scheduleRedemptionData = async _ => {
   schedule.scheduleJob('22,52 * * * *', async _ => {
+    console.log('indexing redemption data')
     const { manager, wallet } = await getVaultManager();
     const supply = Number((await getVaultSupply(wallet, manager)).toString());
     let candidate = {
@@ -132,6 +133,7 @@ const scheduleRedemptionData = async _ => {
       }
     }
     if (candidate.tokenID) await saveRedemptionData(candidate);
+    console.log('indexed redemption data')
   });
 };
 
