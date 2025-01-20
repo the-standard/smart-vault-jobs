@@ -94,15 +94,15 @@ const saveRedemptionData = async data => {
 }
 
 const scheduleRedemptionData = async _ => {
-  // schedule.scheduleJob('22,52 * * * *', async _ => {
-  //   console.log('indexing redemption data')
-  //   const { manager, wallet } = await getVaultManager();
-  //   const supply = Number((await getVaultSupply(wallet, manager)).toString());
+  schedule.scheduleJob('22,52 * * * *', async _ => {
+    console.log('indexing redemption data')
+    const { manager, wallet } = await getVaultManager();
+    const supply = Number((await getVaultSupply(wallet, manager)).toString());
   //   let candidate = {
   //     minted: BigNumber.from(0)
   //   }
-  //   for (let tokenID = 1; tokenID <= supply; tokenID++) {
-  //     const { minted, vaultAddress, collateral, totalCollateralValue } = (await manager.connect(wallet).vaultData(tokenID)).status;
+    for (let tokenID = 1; tokenID <= supply; tokenID++) {
+      const { minted, vaultAddress, collateral, totalCollateralValue } = (await manager.connect(wallet).vaultData(tokenID)).status;
   //     if (minted.gt(candidate.minted)) {
   //       const simpleCollateralSorted = collateral.filter(c => c.token.addr.toLowerCase() !== PAXG).map(c => {
   //         return {
@@ -131,10 +131,10 @@ const scheduleRedemptionData = async _ => {
   //         candidate = potentialCandidate;
   //       }
   //     }
-  //   }
+    }
   //   if (candidate.tokenID) await saveRedemptionData(candidate);
-  //   console.log('indexed redemption data')
-  // });
+    console.log('indexed redemption data')
+  });
 };
 
 
