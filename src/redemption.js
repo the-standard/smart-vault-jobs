@@ -98,41 +98,41 @@ const scheduleRedemptionData = async _ => {
     console.log('indexing redemption data')
     const { manager, wallet } = await getVaultManager();
     const supply = Number((await getVaultSupply(wallet, manager)).toString());
-  //   let candidate = {
-  //     minted: BigNumber.from(0)
-  //   }
+    let candidate = {
+      minted: BigNumber.from(0)
+    }
     for (let tokenID = 1; tokenID <= supply; tokenID++) {
       const { minted, vaultAddress, collateral, totalCollateralValue } = (await manager.connect(wallet).vaultData(tokenID)).status;
-  //     if (minted.gt(candidate.minted)) {
-  //       const simpleCollateralSorted = collateral.filter(c => c.token.addr.toLowerCase() !== PAXG).map(c => {
-  //         return {
-  //           address: c.token.addr.toLowerCase(),
-  //           value: c.collateralValue
-  //         }
-  //       }).sort(byValue)
+      if (minted.gt(candidate.minted)) {
+        const simpleCollateralSorted = collateral.filter(c => c.token.addr.toLowerCase() !== PAXG).map(c => {
+          return {
+            address: c.token.addr.toLowerCase(),
+            value: c.collateralValue
+          }
+        }).sort(byValue)
         
-  //       const lockedCollateralSorted = tokenID > 107 ? (await getLockedCollateral(vaultAddress)).sort(byValue) : [];
-  //       const potentialCandidate = {
-  //         tokenID,
-  //         minted
-  //       };
-  //       if (lockedCollateralSorted.length > 0 && simpleCollateralSorted[0].value.lt(lockedCollateralSorted[0].value)) {
-  //         potentialCandidate.mainValue = lockedCollateralSorted[0].value;
-  //         potentialCandidate.hypervisor = lockedCollateralSorted[0].address;
-  //         potentialCandidate.collateral = optimalCollateralFor(potentialCandidate.hypervisor, simpleCollateralSorted);
-  //       } else {
-  //         potentialCandidate.mainValue = simpleCollateralSorted[0].value;
-  //         potentialCandidate.collateral = simpleCollateralSorted[0].address;
-  //         potentialCandidate.hypervisor = hypervisorOrAddress0For(potentialCandidate.collateral, lockedCollateralSorted);
-  //       }
-  //       // check that main part of redeemable value is at least 10% of whole vault value
-  //       // we don't want a case of a vault with $1 eth and $100000 paxg being used to redeem 1 USDs of its debt
-  //       if (potentialCandidate.mainValue.mul(10).div(totalCollateralValue).gt(0)) {
-  //         candidate = potentialCandidate;
-  //       }
-  //     }
+        const lockedCollateralSorted = tokenID > 107 ? (await getLockedCollateral(vaultAddress)).sort(byValue) : [];
+        const potentialCandidate = {
+          tokenID,
+          minted
+        };
+        if (lockedCollateralSorted.length > 0 && simpleCollateralSorted[0].value.lt(lockedCollateralSorted[0].value)) {
+          potentialCandidate.mainValue = lockedCollateralSorted[0].value;
+          potentialCandidate.hypervisor = lockedCollateralSorted[0].address;
+          potentialCandidate.collateral = optimalCollateralFor(potentialCandidate.hypervisor, simpleCollateralSorted);
+        } else {
+          potentialCandidate.mainValue = simpleCollateralSorted[0].value;
+          potentialCandidate.collateral = simpleCollateralSorted[0].address;
+          potentialCandidate.hypervisor = hypervisorOrAddress0For(potentialCandidate.collateral, lockedCollateralSorted);
+        }
+        // check that main part of redeemable value is at least 10% of whole vault value
+        // we don't want a case of a vault with $1 eth and $100000 paxg being used to redeem 1 USDs of its debt
+        if (potentialCandidate.mainValue.mul(10).div(totalCollateralValue).gt(0)) {
+          candidate = potentialCandidate;
+        }
+      }
     }
-  //   if (candidate.tokenID) await saveRedemptionData(candidate);
+    if (candidate.tokenID) await saveRedemptionData(candidate);
     console.log('indexed redemption data')
   });
 };

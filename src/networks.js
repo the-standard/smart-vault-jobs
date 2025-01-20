@@ -5,7 +5,7 @@ const networks = [
   },
   {
     name: 'arbitrum_sepolia',
-    rpc: 'https://sepolia-rollup.arbitrum.io/rpc'
+    rpc: 'https://arbitrum-sepolia-rpc.publicnode.com'
   }
 ]
 

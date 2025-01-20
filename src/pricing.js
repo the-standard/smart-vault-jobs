@@ -47,7 +47,7 @@ const getTokensForNetwork = async networkName => {
 }
 
 const schedulePricingIndexing = async _ => {
-  schedule.scheduleJob('*/30 * * * *', async _ => {
+  // schedule.scheduleJob('*/30 * * * *', async _ => {
     const networks = getNetworks();
     for (let i = 0; i < networks.length; i++) {
       const network = networks[i];
@@ -61,7 +61,7 @@ const schedulePricingIndexing = async _ => {
       }
       console.log(`indexed prices ${network.name}`);
     }
-  });
+  // });
 };
 
 module.exports = {
