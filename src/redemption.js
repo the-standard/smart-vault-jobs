@@ -111,7 +111,7 @@ const scheduleRedemptionData = async _ => {
           }
         }).sort(byValue)
         
-        const lockedCollateralSorted = tokenID > 107 ? (await getLockedCollateral(vaultAddress)).sort(byValue) : [];
+        const lockedCollateralSorted = tokenID > 122 ? (await getLockedCollateral(vaultAddress)).sort(byValue) : [];
         const potentialCandidate = {
           tokenID,
           minted
