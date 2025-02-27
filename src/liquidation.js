@@ -74,7 +74,7 @@ const scheduleLiquidation = async _ => {
   const network = getNetwork('arbitrum');
 
   // posts liquidation info to discord
-  schedule.scheduleJob('55 7 * * *', async _ => {
+  schedule.scheduleJob('55 */4 * * *', async _ => {
     console.log('logging liquidation info');
     const provider = new ethers.getDefaultProvider(network.rpc);
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
