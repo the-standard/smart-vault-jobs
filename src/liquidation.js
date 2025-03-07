@@ -1,8 +1,16 @@
 const https = require('https');
 const schedule = require('node-schedule');
 const { getContract } = require("./contractFactory");
-const { ethers, BigNumber } = require('ethers');
+const { ethers } = require('ethers');
 const { getNetwork } = require('./networks');
+const { createClient } = require('redis');
+
+const redisHost = process.env.REDIS_HOST || '127.0.0.1';
+const redisPort = process.env.REDIS_PORT || '6379';
+const redis = createClient({
+  url: `redis://${redisHost}:${redisPort}`
+});
+redis.on('error', err => console.log('Redis Client Error', err));
 
 const getVaultSupply = async (wallet, manager) => {
   try {
@@ -48,10 +56,11 @@ const postToDiscord = async (content, embeds) => {
   });
 };
 
-const liquidatableVaults = async (wallet, vaultManager) => {
+const atRiskVaults = async (wallet, vaultManager) => {
   const supply = Number((await getVaultSupply(wallet, vaultManager)).toString());
   const embeds = []
   for (let tokenID = 1; tokenID <= supply; tokenID++) {
+    console.log(tokenID)
     try {
       const { minted, totalCollateralValue, vaultAddress, vaultType } = (await vaultManager.connect(wallet).vaultData(tokenID)).status;
       if (minted.gt(0)) {
@@ -60,7 +69,7 @@ const liquidatableVaults = async (wallet, vaultManager) => {
         if (collateralPercentage.lt(125)) {
           const formattedDebt = ethers.utils.formatEther(minted);
           const formattedVaultType = ethers.utils.parseBytes32String(vaultType);
-          embeds.push({author: {name: `ID: ${tokenID} ${formattedVaultType}`, url: arbiscanURL}, title: vaultAddress, description: `debt: ${formattedDebt} ${formattedVaultType}, collateral: ${collateralPercentage}%`, url: arbiscanURL});
+          embeds.push({tokenID, formattedVaultType, arbiscanURL, vaultAddress, formattedDebt, collateralPercentage});
         }
       }
     } catch (e) {
@@ -68,6 +77,21 @@ const liquidatableVaults = async (wallet, vaultManager) => {
     }
   }
   return embeds;
+}
+
+const postingFormat = data => {
+  const { tokenID, formattedVaultType, arbiscanURL, vaultAddress, formattedDebt, collateralPercentage } = data;
+  return {author: {name: `ID: ${tokenID} ${formattedVaultType}`, url: arbiscanURL}, title: vaultAddress, description: `debt: ${formattedDebt} ${formattedVaultType}, collateral: ${collateralPercentage}%`, url: arbiscanURL}
+}
+
+const saveTokenIDsToRedis = async data => {
+  const key = 'atRiskVaults';
+  await redis.connect();
+  await redis.MULTI()
+    .DEL(key)
+    .SADD(key, data.map(vault => vault.tokenID.toString()))
+    .EXEC();
+  await redis.disconnect();
 }
 
 const scheduleLiquidation = async _ => {
@@ -87,12 +111,12 @@ const scheduleLiquidation = async _ => {
     liquidatorUSDsBalance = ethers.utils.formatEther(await USDs.connect(wallet).balanceOf(wallet.address));
   
     let content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n**${liquidatorUSDsBalance} USDs**\n---\n`;
-    const embeds = [ 
-      ... await liquidatableVaults(wallet, vaultManagerEUROs),
-      ... await liquidatableVaults(wallet, vaultManagerUSDs)
-    ]
-  
-    await postToDiscord(content, embeds);
+
+    const atRiskEUROs = await atRiskVaults(wallet, vaultManagerEUROs);
+    const atRiskUSDs = await atRiskVaults(wallet, vaultManagerUSDs);
+
+    await saveTokenIDsToRedis(atRiskUSDs);
+    await postToDiscord(content, [ ...atRiskEUROs, ...atRiskUSDs ].map(postingFormat));
   });
 };
 
