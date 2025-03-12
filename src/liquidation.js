@@ -106,9 +106,8 @@ const scheduleLiquidation = async _ => {
   const network = getNetwork('arbitrum');
 
   // posts liquidation info to discord
-  // schedule.scheduleJob('38 */4 * * *', async _ => {
+  schedule.scheduleJob('38 */4 * * *', async _ => {
     console.log('logging liquidation info');
-    const start = Math.floor(new Date/1000)
     const provider = new ethers.getDefaultProvider(network.rpc);
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
     const vaultManagerEUROs = await getContract(network.name, 'SmartVaultManager');
@@ -126,14 +125,9 @@ const scheduleLiquidation = async _ => {
       atRiskVaults(wallet, vaultManagerUSDs)
     ]);
 
-    console.log(atRiskEUROs);
-    console.log('---');
-    console.log(atRiskUSDs);
-    console.log(Math.floor(new Date/1000) - start)
-
     await saveTokenIDsToRedis(atRiskUSDs);
     await postToDiscord(content, [ ...atRiskEUROs, ...atRiskUSDs ].map(postingFormat));
-  // });
+  });
 };
 
 module.exports = {
