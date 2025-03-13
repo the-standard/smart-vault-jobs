@@ -57,7 +57,6 @@ const postToDiscord = async (content, embeds) => {
 };
 
 const getVaultData = async (tokenID, wallet, vaultManager) => {
-  console.log(tokenID);
   try {
     const { minted, totalCollateralValue, vaultAddress, vaultType } = (await vaultManager.connect(wallet).vaultData(tokenID)).status;
     let data = { tokenID };
@@ -81,7 +80,7 @@ const getVaultData = async (tokenID, wallet, vaultManager) => {
 
 const atRiskVaults = async (wallet, vaultManager) => {
   const supply = Number((await getVaultSupply(wallet, vaultManager)).toString());
-  const tokenIDs = [ ...Array(supply).keys() ].map(i => i+1);
+  const tokenIDs = [ ...Array(10).keys() ].map(i => i+1);
   return (await Promise.all(tokenIDs.map(async id => {
     return await getVaultData(id, wallet, vaultManager);
   }))).filter(vault => vault.atRisk);
@@ -96,10 +95,9 @@ const postingFormat = data => {
 const saveTokenIDsToRedis = async data => {
   const key = 'atRiskVaults';
   await redis.connect();
-  await redis.MULTI()
-    .DEL(key)
-    .SADD(key, data.map(vault => vault.tokenID.toString()))
-    .EXEC();
+  let command = redis.MULTI().DEL(key);
+  if (data.length > 0) command = command.SADD(key, data.map(vault => vault.tokenID.toString()));
+  await command.EXEC();
   await redis.disconnect();
 }
 
@@ -126,10 +124,7 @@ const scheduleLiquidation = async _ => {
       atRiskVaults(wallet, vaultManagerEUROs),
       atRiskVaults(wallet, vaultManagerUSDs)
     ]);
-
-    console.log(atRiskEUROs);
-    console.log(atRiskUSDs);
-
+    
     await saveTokenIDsToRedis(atRiskUSDs);
     await postToDiscord(content, [ ...atRiskEUROs, ...atRiskUSDs ].map(postingFormat));
   });
