@@ -80,7 +80,7 @@ const getVaultData = async (tokenID, wallet, vaultManager) => {
 
 const atRiskVaults = async (wallet, vaultManager) => {
   const supply = Number((await getVaultSupply(wallet, vaultManager)).toString());
-  const tokenIDs = [ ...Array(10).keys() ].map(i => i+1);
+  const tokenIDs = [ ...Array(supply).keys() ].map(i => i+1);
   return (await Promise.all(tokenIDs.map(async id => {
     return await getVaultData(id, wallet, vaultManager);
   }))).filter(vault => vault.atRisk);
