@@ -57,6 +57,7 @@ const postToDiscord = async (content, embeds) => {
 };
 
 const getVaultData = async (tokenID, wallet, vaultManager) => {
+  console.log(tokenID);
   try {
     const { minted, totalCollateralValue, vaultAddress, vaultType } = (await vaultManager.connect(wallet).vaultData(tokenID)).status;
     let data = { tokenID };
@@ -72,7 +73,7 @@ const getVaultData = async (tokenID, wallet, vaultManager) => {
   } catch (e) {
     // two old EUROs vaults have unavailable vault data, but they are not at risk
     if (e.message.includes('execution reverted')) return { tokenID };
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 10000));
     // recursively retry function for other failures (probably rpc rate limits)
     return await getVaultData(tokenID, wallet, vaultManager);
   }
@@ -124,6 +125,9 @@ const scheduleLiquidation = async _ => {
       atRiskVaults(wallet, vaultManagerEUROs),
       atRiskVaults(wallet, vaultManagerUSDs)
     ]);
+
+    console.log(atRiskEUROs);
+    console.log(atRiskUSDs);
 
     await saveTokenIDsToRedis(atRiskUSDs);
     await postToDiscord(content, [ ...atRiskEUROs, ...atRiskUSDs ].map(postingFormat));
