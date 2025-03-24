@@ -10,8 +10,6 @@ schedulePricingIndexing();
 scheduleLiquidation();
 scheduleRedemptionData();
 
-console.log('test cd')
-
 const server = http.createServer(async (req, res) => {
   res.statusCode = 200;
   res.end();
