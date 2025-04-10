@@ -169,7 +169,7 @@ const getAllVaultData = async manager => {
 const determineRedemptionCandidate = async data => {
   for (let i = 0; i < data.length; i++) {
     const redemptionCandidateData = await generateRedemptionCandidateData(data[i]);
-    if (data[i].totalCollateralValue.div(redemptionCandidateData.mainValue).lt(10)) {
+    if (redemptionCandidateData.mainValue.gt(0) && data[i].totalCollateralValue.div(redemptionCandidateData.mainValue).lt(10)) {
       return { 
         ... redemptionCandidateData,
         tokenID: data[i].tokenID
