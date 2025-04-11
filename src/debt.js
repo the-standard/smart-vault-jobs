@@ -12,6 +12,10 @@ const redis = createClient({
 });
 redis.on('error', err => console.log('Redis Client Error', err));
 
+const vaultManagerAddresses = {
+  USDs: '0x496aB4A155C8fE359Cd28d43650fAFA0A35322Fb',
+  EUROs: '0xba169cceCCF7aC51dA223e04654Cf16ef41A68CC'
+}
 const USDsHypervisor = '0x547a116a2622876ce1c8d19d41c683c8f7bec5c0';
 const PAXG = '0xfeb4dfc8c4cf7ed305bb08065d08ec6ee6728429';
 const hypervisors = {
@@ -155,7 +159,6 @@ const getAllVaultData = async manager => {
   const supply = Number((await getVaultSupply(manager)).toString());
   const data = [];
   for (let tokenID = 1; tokenID <= supply; tokenID++) {
-    console.log(tokenID)
     try {
       const { status } = await manager.vaultData(tokenID);
       data.push({ ... status, tokenID });
@@ -185,65 +188,53 @@ const saveRedemptionData = async data => {
   await redis.disconnect();
 }
 
-const scheduleUSDsData = async _ => {
-  schedule.scheduleJob('22,52 * * * *', async _ => {
-    const { provider, manager, wallet } = await getVaultManager('0x496aB4A155C8fE359Cd28d43650fAFA0A35322Fb');
-    const vaultData = await getAllVaultData(manager);
-    const sortedByRisk = vaultData
-      .filter(vault => vault.minted.gt(0))
-      .sort((a,b) => a.totalCollateralValue.mul(100).div(a.minted) - b.totalCollateralValue.mul(100).div(b.minted));
-    const liquidationRisks = sortedByRisk
-      .filter(vault => vault.totalCollateralValue.mul(100).div(vault.minted).lt(125))
-      .map(vault => {
-        return {
-          ... vault,
-          formattedDebt: ethers.utils.formatEther(vault.minted),
-          formattedVaultType: ethers.utils.parseBytes32String(vault.vaultType),
-          collateralPercentage: vault.totalCollateralValue.mul(100).div(vault.minted)
-        }
-      });
-    const redemptionCandidate = await determineRedemptionCandidate(sortedByRisk);
+const processDebtData = async token => {
+  const { provider, manager, wallet } = await getVaultManager(vaultManagerAddresses[token]);
+  const vaultData = await getAllVaultData(manager);
+  const sortedByRisk = vaultData
+    .filter(vault => vault.minted.gt(0))
+    .sort((a,b) => a.totalCollateralValue.mul(100).div(a.minted) - b.totalCollateralValue.mul(100).div(b.minted));
+  const liquidationRisks = sortedByRisk
+    .filter(vault => vault.totalCollateralValue.mul(100).div(vault.minted).lt(125))
+    .map(vault => {
+      return {
+        ... vault,
+        formattedDebt: ethers.utils.formatEther(vault.minted),
+        formattedVaultType: ethers.utils.parseBytes32String(vault.vaultType),
+        collateralPercentage: vault.totalCollateralValue.mul(100).div(vault.minted)
+      }
+    });
 
-    const EUROs = await getContract('arbitrum', 'EUROs');
-    const USDs = await getContract('arbitrum', 'EUROs', '0x2Ea0bE86990E8Dac0D09e4316Bb92086F304622d');
-    const liquidatorETHBalance = ethers.utils.formatEther(await provider.getBalance(wallet.address));
-    const liquidatorEUROsBalance = ethers.utils.formatEther(await EUROs.connect(wallet).balanceOf(wallet.address));
-    const liquidatorUSDsBalance = ethers.utils.formatEther(await USDs.connect(wallet).balanceOf(wallet.address));
-    const content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n**${liquidatorUSDsBalance} USDs**\n---\n`;
-    await postToDiscord(content, liquidationRisks.map(postingFormat));
+  const EUROs = await getContract('arbitrum', 'EUROs');
+  const USDs = await getContract('arbitrum', 'EUROs', '0x2Ea0bE86990E8Dac0D09e4316Bb92086F304622d');
+  const liquidatorETHBalance = ethers.utils.formatEther(await provider.getBalance(wallet.address));
+  const liquidatorEUROsBalance = ethers.utils.formatEther(await EUROs.connect(wallet).balanceOf(wallet.address));
+  const liquidatorUSDsBalance = ethers.utils.formatEther(await USDs.connect(wallet).balanceOf(wallet.address));
+  const content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n**${liquidatorUSDsBalance} USDs**\n---\n`;
+  console.log('liquidations', token, content, liquidationRisks);
+  await postToDiscord(content, liquidationRisks.map(postingFormat));
+
+  if (token === 'USDs') {
+    const redemptionCandidate = await determineRedemptionCandidate(sortedByRisk);
+    console.log('redemptions', token, redemptionCandidate);
     if (redemptionCandidate.tokenID) await saveRedemptionData(redemptionCandidate);
-  });
+  }
 }
 
-const scheduleEUROsData = async _ => {
-  schedule.scheduleJob('32 * * * *', async _ => {
-    const { provider, manager, wallet } = await getVaultManager('0xba169cceCCF7aC51dA223e04654Cf16ef41A68CC');
-    const vaultData = await getAllVaultData(manager);
-    const sortedByRisk = vaultData
-      .filter(vault => vault.minted.gt(0))
-      .sort((a,b) => a.totalCollateralValue.mul(100).div(a.minted) - b.totalCollateralValue.mul(100).div(b.minted));
-    const liquidationRisks = sortedByRisk
-      .filter(vault => vault.totalCollateralValue.mul(100).div(vault.minted).lt(125))
-      .map(vault => {
-        return {
-          ... vault,
-          formattedDebt: ethers.utils.formatEther(vault.minted),
-          formattedVaultType: ethers.utils.parseBytes32String(vault.vaultType),
-          collateralPercentage: vault.totalCollateralValue.mul(100).div(vault.minted)
-        }
-      });
+const scheduleDebtData = async _ => {
+  schedule.scheduleJob('22,52 * * * *', async _ => {
+    console.log('processing USDs debt data...');
+    await processDebtData('USDs');
+    console.log('processed USDs debt data');
+  });
 
-    const EUROs = await getContract('arbitrum', 'EUROs');
-    const USDs = await getContract('arbitrum', 'EUROs', '0x2Ea0bE86990E8Dac0D09e4316Bb92086F304622d');
-    const liquidatorETHBalance = ethers.utils.formatEther(await provider.getBalance(wallet.address));
-    const liquidatorEUROsBalance = ethers.utils.formatEther(await EUROs.connect(wallet).balanceOf(wallet.address));
-    const liquidatorUSDsBalance = ethers.utils.formatEther(await USDs.connect(wallet).balanceOf(wallet.address));
-    const content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n**${liquidatorUSDsBalance} USDs**\n---\n`;
-    await postToDiscord(content, liquidationRisks.map(postingFormat));
+  schedule.scheduleJob('32 * * * *', async _ => {
+    console.log('processing EUROs debt data...');
+    await processDebtData('EUROs');
+    console.log('processed EUROs debt data');
   });
 }
 
 module.exports = {
-  scheduleUSDsData,
-  scheduleEUROsData
+  scheduleDebtData
 };

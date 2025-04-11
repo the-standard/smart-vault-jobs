@@ -1,13 +1,12 @@
 const http = require('http');
 require('dotenv').config();
 const { schedulePricingIndexing } = require('./src/pricing');
-const { scheduleUSDsData, scheduleEUROsData } = require('./src/debt');
+const { scheduleDebtData } = require('./src/debt');
 
 const port = process.env.PORT || 3000;
 
 schedulePricingIndexing();
-scheduleUSDsData();
-scheduleEUROsData();
+scheduleDebtData();
 
 const server = http.createServer(async (req, res) => {
   res.statusCode = 200;
