@@ -188,6 +188,15 @@ const saveRedemptionData = async data => {
   await redis.disconnect();
 }
 
+const saveTokenIDsToRedis = async data => {
+  const key = 'atRiskVaults';
+  await redis.connect();
+  let command = redis.MULTI().DEL(key);
+  if (data.length > 0) command = command.SADD(key, data.map(vault => vault.tokenID.toString()));
+  await command.EXEC();
+  await redis.disconnect();
+}
+
 const processDebtData = async token => {
   const { provider, manager, wallet } = await getVaultManager(vaultManagerAddresses[token]);
   const vaultData = await getAllVaultData(manager);
@@ -213,6 +222,7 @@ const processDebtData = async token => {
   const content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n**${liquidatorUSDsBalance} USDs**\n---\n`;
   console.log('liquidations', token, content, liquidationRisks);
   await postToDiscord(content, liquidationRisks.map(postingFormat));
+  await saveTokenIDsToRedis(liquidationRisks);
 
   if (token === 'USDs') {
     const redemptionCandidate = await determineRedemptionCandidate(sortedByRisk);
