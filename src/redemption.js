@@ -104,15 +104,16 @@ const scheduleRedemptionChecks = async _ => {
   const provider = new ethers.getDefaultProvider(getNetwork('arbitrum').rpc);
   const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
   const client = await pool.connect();
-  console.log(client)
   try {
     const lastRedemptionQuery = 'SELECT redeemed_at FROM redemptions ORDER BY redeemed_at DESC LIMIT 1;';
     const lastRedemptionTS = new Date((await client.query(lastRedemptionQuery)).rows[0].redeemed_at)/1000;
-    // const activities = (await post(
-    //   `query { smartVaultActivities(where: {detailType: "autoRedemption", blockTimestamp_gt: ${lastRedemptionTS}} orderBy: blockTimestamp orderDirection: asc) { id vault{id} blockTimestamp } }`
-    // )).data.smartVaultActivities;
+    const activities = (await post(
+      `query { smartVaultActivities(where: {detailType: "autoRedemption", blockTimestamp_gt: ${lastRedemptionTS}} orderBy: blockTimestamp orderDirection: asc) { id vault{id} blockTimestamp } }`
+    )).data.smartVaultActivities;
+    console.log(activities[0].id)
 
     // for (let i = 0; i < 1; i++) {
+    //   console.log(i);
     //   const activity = { ... activities[i], ... await getDetailedActivity(activities[i].id) }
     //   activity.symbol = activity.token === ethers.constants.AddressZero ?
     //     'ETH' : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).symbol();
