@@ -104,7 +104,7 @@ if ((new Date() / 1000) - activity.blockTimestamp > 36 * 60 * 60) roundId = BigN
 }
 
 const scheduleRedemptionChecks = async _ => {
-  schedule.scheduleJob('30 16 * * *', async _ => {
+  schedule.scheduleJob('12,42 * * * *', async _ => {
     const provider = new ethers.getDefaultProvider(getNetwork('arbitrum').rpc);
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
     const client = await pool.connect();
