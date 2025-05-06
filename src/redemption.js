@@ -91,12 +91,9 @@ const calculateCollateralSwapped = async (activity, provider) => {
 }
 
 const convertToUSDHistorical = async (activity, provider) => {
-  //18446744073709555132
   const clFeed = (await getContract('arbitrum', 'Chainlink', clFeeds[activity.token])).connect(provider);
   let { updatedAt, roundId, answer } = await clFeed.latestRoundData();
-if ((new Date() / 1000) - activity.blockTimestamp > 36 * 60 * 60) roundId = BigNumber.from('18446744073709555142')
   while(updatedAt.gt(activity.blockTimestamp)) {
-    console.log(updatedAt.sub(activity.blockTimestamp).toString());
     roundId = roundId.sub(1);
     ({updatedAt, answer} = await clFeed.getRoundData(roundId));
   }
@@ -105,6 +102,7 @@ if ((new Date() / 1000) - activity.blockTimestamp > 36 * 60 * 60) roundId = BigN
 
 const scheduleRedemptionChecks = async _ => {
   schedule.scheduleJob('12,42 * * * *', async _ => {
+    console.log('indexing redemptions ...')
     const provider = new ethers.getDefaultProvider(getNetwork('arbitrum').rpc);
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
     const client = await pool.connect();
@@ -116,7 +114,7 @@ const scheduleRedemptionChecks = async _ => {
       )).data.smartVaultActivities;
   
       for (let i = 0; i < activities.length; i++) {
-        console.log(i);
+        console.log('indexing ', activity.id);
         const activity = { ... activities[i], ... await getDetailedActivity(activities[i].id) }
         activity.symbol = activity.token === ethers.constants.AddressZero ?
           'ETH' : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).symbol();
@@ -141,6 +139,7 @@ const scheduleRedemptionChecks = async _ => {
     } finally {
       client.release();
     }
+    console.log('indexed redemptions')
   });
 }
 
