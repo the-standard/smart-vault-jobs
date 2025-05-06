@@ -114,7 +114,7 @@ const scheduleRedemptionChecks = async _ => {
       )).data.smartVaultActivities;
   
       for (let i = 0; i < activities.length; i++) {
-        console.log('indexing ', activity.id);
+        console.log('indexing ', activities[i].id);
         const activity = { ... activities[i], ... await getDetailedActivity(activities[i].id) }
         activity.symbol = activity.token === ethers.constants.AddressZero ?
           'ETH' : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).symbol();
