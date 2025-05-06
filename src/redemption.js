@@ -4,6 +4,7 @@ const Pool = require('pg-pool');
 const { getContract } = require('./contractFactory');
 const { getNetwork } = require('./networks');
 const { formatUnits, formatEther } = require('ethers/lib/utils');
+const schedule = require('node-schedule');
 
 const { 
   POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USERNAME, POSTGRES_PASSWORD
@@ -90,8 +91,10 @@ const calculateCollateralSwapped = async (activity, provider) => {
 }
 
 const convertToUSDHistorical = async (activity, provider) => {
+  //18446744073709555132
   const clFeed = (await getContract('arbitrum', 'Chainlink', clFeeds[activity.token])).connect(provider);
   let { updatedAt, roundId, answer } = await clFeed.latestRoundData();
+if ((new Date() / 1000) - activity.blockTimestamp > 36 * 60 * 60) roundId = BigNumber.from('18446744073709555142')
   while(updatedAt.gt(activity.blockTimestamp)) {
     console.log(updatedAt.sub(activity.blockTimestamp).toString());
     roundId = roundId.sub(1);
@@ -101,7 +104,7 @@ const convertToUSDHistorical = async (activity, provider) => {
 }
 
 const scheduleRedemptionChecks = async _ => {
-  schedule.scheduleJob('15 16 * * *', async _ => {
+  schedule.scheduleJob('30 16 * * *', async _ => {
     const provider = new ethers.getDefaultProvider(getNetwork('arbitrum').rpc);
     const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
     const client = await pool.connect();
