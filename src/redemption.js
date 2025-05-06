@@ -1,143 +1,144 @@
-const https = require('https');
-const { ethers, BigNumber } = require("ethers");
-const { createClient } = require('redis');
-const schedule = require('node-schedule');
-const { getContract } = require("./contractFactory");
-const { getNetwork } = require("./networks");
+const { ethers, BigNumber } = require('ethers');
+const https = require('https')
+const Pool = require('pg-pool');
+const { getContract } = require('./contractFactory');
+const { getNetwork } = require('./networks');
+const { formatUnits, formatEther } = require('ethers/lib/utils');
 
-const redisHost = process.env.REDIS_HOST || '127.0.0.1';
-const redisPort = process.env.REDIS_PORT || '6379';
-const redis = createClient({
-  url: `redis://${redisHost}:${redisPort}`
+const { 
+  POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USERNAME, POSTGRES_PASSWORD
+} = process.env;
+
+let pool = new Pool({
+  database: POSTGRES_DB,
+  user: POSTGRES_USERNAME,
+  password: POSTGRES_PASSWORD,
+  host: POSTGRES_HOST,
+  port: POSTGRES_PORT
 });
-redis.on('error', err => console.log('Redis Client Error', err));
 
-
-const USDsHypervisor = '0x547a116a2622876ce1c8d19d41c683c8f7bec5c0';
-const PAXG = '0xfeb4dfc8c4cf7ed305bb08065d08ec6ee6728429'
-const hypervisors = {
-  '0x0000000000000000000000000000000000000000': '0x52ee1ffba696c5e9b0bc177a9f8a3098420ea691',
-  '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': '0x52ee1ffba696c5e9b0bc177a9f8a3098420ea691',
-  '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f': '0x52ee1ffba696c5e9b0bc177a9f8a3098420ea691',
-  '0x912ce59144191c1204e64559fe8253a0e49e6548': '0x6b7635b7d2e85188db41c3c05b1efa87b143fce8',
-  '0xf97f4df75117a78c1a5a0dbb814af92458539fb4': '0xfa392dbefd2d5ec891ef5aeb87397a89843a8260',
-  '0xfc5a1a6eb076a2c7ad06ed22c90d7e710e35ad0a': '0xf08bdbc590c59cb7b27a8d224e419ef058952b5f',
-  '0x3082cc23568ea640225c2467653db90e9250aaa0': '0x2bcbdd577616357464cfe307bc67f9e820a66e80'
+const entryPools = {
+  '0x0000000000000000000000000000000000000000': '0xc6962004f452be9203591991d15f6b388e09e8d0',
+  '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': '0xc6962004f452be9203591991d15f6b388e09e8d0',
+  '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f': '0x0e4831319a50228b9e450861297ab92dee15b44f',
+  '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': '0xbe3ad6a5669dc0b8b12febc03608860c31e2eef6',
+  '0xf97f4df75117a78c1a5a0dbb814af92458539fb4': '0x468b88941e7cc0b88c1869d68ab6b570bcef62ff',
+  '0x912ce59144191c1204e64559fe8253a0e49e6548': '0xc6f780497a95e246eb9449f5e4770916dcd6396a'
 }
 
-const getVaultManager = async _ => {
-  const network = getNetwork('arbitrum');
-  const manager = await getContract(network.name, 'SmartVaultManager', '0x496aB4A155C8fE359Cd28d43650fAFA0A35322Fb');
-  const provider = new ethers.getDefaultProvider(network.rpc);
-  const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-  return { manager, wallet, provider };
-};
+const clFeeds = {
+  '0x0000000000000000000000000000000000000000': '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
+  '0x82af49447d8a07e3bd95bd0d56f35241523fbab1': '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
+  '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f': '0xd0C7101eACbB49F3deCcCc166d238410D6D46d57',
+  '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': '0x3f3f5dF88dC9F13eac63DF89EC16ef6e7E25DdE7',
+  '0xf97f4df75117a78c1a5a0dbb814af92458539fb4': '0x86E53CF1B870786351Da77A57575e79CB55812CB',
+  '0x912ce59144191c1204e64559fe8253a0e49e6548': '0xb2A824043730FE05F3DA2efaFa1CBbe83fa548D6'
+}
 
-const getVaultSupply = async (wallet, manager) => {
-  try {
-    return await manager.connect(wallet).totalSupply();
-  } catch (_) {
-    return await getVaultSupply(wallet, manager);
+const post = async query => {
+  const dataString = JSON.stringify({ query });
+
+  const options = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': dataString.length,
+    },
+    timeout: 2000
   }
-};
 
-const isHypervisorAddress = key => {
-  return key.substring(0,2) === '0x' && key !== USDsHypervisor;
-}
-
-const getLockedCollateral = async (vaultAddress) => {
-  return new Promise(resolve => {
-    https.get(`https://wire2.gamma.xyz/arbitrum/user/${vaultAddress}`, res => {
-      let json = '';
-
-      res.on('data', data => {
-        json += data;
-      });
-
-      res.on('end', _ => {
-        const results = JSON.parse(json)[vaultAddress.toLowerCase()];
-        if (results) {
-          return resolve(
-            Object.keys(results).filter(isHypervisorAddress).map(h => {
-              return {
-                address: h,
-                value: ethers.utils.parseEther(results[h.toLowerCase()]['balanceUSD'].toString())
-              }
-            })
-          )
-        }
-        resolve([]);
-      });
-    });
-  });
-};
-
-const byValue = (a,b) => {
-  return a.value.lt(b.value) ? 0 : -1;
-}
-
-const hypervisorOrAddress0For = (collateral, lockedCollateral) => {
-  const filtered = lockedCollateral.filter(c => c.address === hypervisors[collateral]);
-  return (filtered[0] && filtered[0].address) || ethers.constants.AddressZero;
-}
-
-const optimalCollateralFor = (hypervisor, collateral) => {
-  const filtered = collateral.filter(c => hypervisors[c.address] === hypervisor);
-  return filtered.sort(byValue)[0].address;
-}
-
-const saveRedemptionData = async data => {
-  data = (({ tokenID, collateral, hypervisor }) => ({ tokenID, collateral, hypervisor }))(data);
-  await redis.connect();
-  await redis.HSET('redemption', data);
-  await redis.disconnect();
-}
-
-const scheduleRedemptionData = async _ => {
-  schedule.scheduleJob('22,52 * * * *', async _ => {
-    console.log('indexing redemption data')
-    const { manager, wallet } = await getVaultManager();
-    const supply = Number((await getVaultSupply(wallet, manager)).toString());
-    let candidate = {
-      minted: BigNumber.from(0)
-    }
-    for (let tokenID = 1; tokenID <= supply; tokenID++) {
-      const { minted, vaultAddress, collateral, totalCollateralValue } = (await manager.connect(wallet).vaultData(tokenID)).status;
-      if (minted.gt(candidate.minted)) {
-        const simpleCollateralSorted = collateral.filter(c => c.token.addr.toLowerCase() !== PAXG).map(c => {
-          return {
-            address: c.token.addr.toLowerCase(),
-            value: c.collateralValue
-          }
-        }).sort(byValue)
-        
-        const lockedCollateralSorted = tokenID > 122 ? (await getLockedCollateral(vaultAddress)).sort(byValue) : [];
-        const potentialCandidate = {
-          tokenID,
-          minted
-        };
-        if (lockedCollateralSorted.length > 0 && simpleCollateralSorted[0].value.lt(lockedCollateralSorted[0].value)) {
-          potentialCandidate.mainValue = lockedCollateralSorted[0].value;
-          potentialCandidate.hypervisor = lockedCollateralSorted[0].address;
-          potentialCandidate.collateral = optimalCollateralFor(potentialCandidate.hypervisor, simpleCollateralSorted);
-        } else {
-          potentialCandidate.mainValue = simpleCollateralSorted[0].value;
-          potentialCandidate.collateral = simpleCollateralSorted[0].address;
-          potentialCandidate.hypervisor = hypervisorOrAddress0For(potentialCandidate.collateral, lockedCollateralSorted);
-        }
-        // check that main part of redeemable value is at least 10% of whole vault value
-        // we don't want a case of a vault with $1 eth and $100000 paxg being used to redeem 1 USDs of its debt
-        if (potentialCandidate.mainValue.mul(10).div(totalCollateralValue).gt(0)) {
-          candidate = potentialCandidate;
-        }
+  return new Promise((resolve, reject) => {
+    const req = https.request('https://api.studio.thegraph.com/query/109184/smart-vault-history/v1.2.1', options, (res) => {
+      if (res.statusCode < 200 || res.statusCode > 299) {
+        return reject(new Error(`HTTP status code ${res.statusCode}`))
       }
-    }
-    if (candidate.tokenID) await saveRedemptionData(candidate);
-    console.log('indexed redemption data')
-  });
-};
 
+      const body = []
+      res.on('data', (chunk) => body.push(chunk))
+      res.on('end', () => {
+        const resString = Buffer.concat(body).toString()
+        resolve(JSON.parse(resString))
+      })
+    })
+
+    req.on('error', (err) => {
+      reject(err)
+    })
+
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Request time out'))
+    })
+
+    req.write(dataString)
+    req.end()
+  })
+}
+
+const getDetailedActivity = async activityID => {
+  return (await post(`query { autoRedemption(id: "${activityID}") { token USDsRedeemed } }`)).data.autoRedemption;
+}
+
+const calculateCollateralSwapped = async (activity, provider) => {
+  const poolAddr = entryPools[activity.token.toLowerCase()];
+  const swapHopOneLog = (await provider.getTransactionReceipt(activity.id)).logs
+    .filter(log => log.address.toLowerCase() === poolAddr)[0];
+  const contract = await getContract('arbitrum', 'UniswapV3Pool', poolAddr);
+  const decodedEventArgs = contract.interface.parseLog(swapHopOneLog).args;
+  return decodedEventArgs.amount0.gt(0) ?
+    decodedEventArgs.amount0 : decodedEventArgs.amount1;
+}
+
+const convertToUSDHistorical = async (activity, provider) => {
+  const clFeed = (await getContract('arbitrum', 'Chainlink', clFeeds[activity.token])).connect(provider);
+  let { updatedAt, roundId, answer } = await clFeed.latestRoundData();
+  while(updatedAt.gt(activity.blockTimestamp)) {
+    console.log(updatedAt.sub(1746505440).toString());
+    roundId = roundId.sub(1);
+    ({updatedAt, answer} = await clFeed.getRoundData(roundId));
+  }
+  return formatUnits(activity.collateralSold.mul(answer), 8 + activity.decimals);
+}
+
+const scheduleRedemptionChecks = async _ => {
+  const provider = new ethers.getDefaultProvider(getNetwork('arbitrum').rpc);
+  const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+  const client = await pool.connect();
+  try {
+    const lastRedemptionQuery = 'SELECT redeemed_at FROM redemptions ORDER BY redeemed_at DESC LIMIT 1;';
+    const lastRedemptionTS = new Date((await client.query(lastRedemptionQuery)).rows[0].redeemed_at)/1000;
+    console.log(lastRedemptionTS)
+    // const activities = (await post(
+    //   `query { smartVaultActivities(where: {detailType: "autoRedemption", blockTimestamp_gt: ${lastRedemptionTS}} orderBy: blockTimestamp orderDirection: asc) { id vault{id} blockTimestamp } }`
+    // )).data.smartVaultActivities;
+
+    // for (let i = 0; i < 1; i++) {
+    //   const activity = { ... activities[i], ... await getDetailedActivity(activities[i].id) }
+    //   activity.symbol = activity.token === ethers.constants.AddressZero ?
+    //     'ETH' : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).symbol();
+    //   activity.decimals = activity.token === ethers.constants.AddressZero ?
+    //     18 : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).decimals();
+    //   activity.collateralSold = await calculateCollateralSwapped(activity, provider);
+    //   activity.collateralSoldUSD = await convertToUSDHistorical(activity, provider);
+    //   const insertRedemptionQuery = 'INSERT INTO redemptions (tx_hash,vault_address,collateral_token,redeemed_at,usds_redeemed,collateral_sold,collateral_sold_usd) values ($1,$2,$3,$4,$5,$6,$7)'
+    //   await client.query(insertRedemptionQuery, [
+    //     activity.id,
+    //     activity.vault.id,
+    //     activity.symbol,
+    //     new Date(activity.blockTimestamp*1000),
+    //     formatEther(BigNumber.from(activity.USDsRedeemed)),
+    //     formatUnits(activity.collateralSold, activity.decimals),
+    //     activity.collateralSoldUSD
+    //   ])
+    // }
+
+  } catch (e) {
+    console.log(e);
+  } finally {
+    client.release();
+  }
+}
 
 module.exports = {
-  scheduleRedemptionData
-};
+  scheduleRedemptionChecks
+}
