@@ -104,10 +104,10 @@ const scheduleRedemptionChecks = async _ => {
   const provider = new ethers.getDefaultProvider(getNetwork('arbitrum').rpc);
   const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
   const client = await pool.connect();
+  console.log(client)
   try {
     const lastRedemptionQuery = 'SELECT redeemed_at FROM redemptions ORDER BY redeemed_at DESC LIMIT 1;';
     const lastRedemptionTS = new Date((await client.query(lastRedemptionQuery)).rows[0].redeemed_at)/1000;
-    console.log(lastRedemptionTS)
     // const activities = (await post(
     //   `query { smartVaultActivities(where: {detailType: "autoRedemption", blockTimestamp_gt: ${lastRedemptionTS}} orderBy: blockTimestamp orderDirection: asc) { id vault{id} blockTimestamp } }`
     // )).data.smartVaultActivities;
