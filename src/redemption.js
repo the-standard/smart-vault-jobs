@@ -101,42 +101,44 @@ const convertToUSDHistorical = async (activity, provider) => {
 }
 
 const scheduleRedemptionChecks = async _ => {
-  const provider = new ethers.getDefaultProvider(getNetwork('arbitrum').rpc);
-  const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-  const client = await pool.connect();
-  try {
-    const lastRedemptionQuery = 'SELECT redeemed_at FROM redemptions ORDER BY redeemed_at DESC LIMIT 1;';
-    const lastRedemptionTS = new Date((await client.query(lastRedemptionQuery)).rows[0].redeemed_at)/1000;
-    const activities = (await post(
-      `query { smartVaultActivities(where: {detailType: "autoRedemption", blockTimestamp_gt: ${lastRedemptionTS}} orderBy: blockTimestamp orderDirection: asc) { id vault{id} blockTimestamp } }`
-    )).data.smartVaultActivities;
-
-    for (let i = 0; i < activities.length; i++) {
-      console.log(i);
-      const activity = { ... activities[i], ... await getDetailedActivity(activities[i].id) }
-      activity.symbol = activity.token === ethers.constants.AddressZero ?
-        'ETH' : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).symbol();
-      activity.decimals = activity.token === ethers.constants.AddressZero ?
-        18 : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).decimals();
-      activity.collateralSold = await calculateCollateralSwapped(activity, provider);
-      activity.collateralSoldUSD = await convertToUSDHistorical(activity, provider);
-      const insertRedemptionQuery = 'INSERT INTO redemptions (tx_hash,vault_address,collateral_token,redeemed_at,usds_redeemed,collateral_sold,collateral_sold_usd) values ($1,$2,$3,$4,$5,$6,$7)'
-      await client.query(insertRedemptionQuery, [
-        activity.id,
-        activity.vault.id,
-        activity.symbol,
-        new Date(activity.blockTimestamp*1000),
-        formatEther(BigNumber.from(activity.USDsRedeemed)),
-        formatUnits(activity.collateralSold, activity.decimals),
-        activity.collateralSoldUSD
-      ])
+  schedule.scheduleJob('15 16 * * *', async _ => {
+    const provider = new ethers.getDefaultProvider(getNetwork('arbitrum').rpc);
+    const wallet = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
+    const client = await pool.connect();
+    try {
+      const lastRedemptionQuery = 'SELECT redeemed_at FROM redemptions ORDER BY redeemed_at DESC LIMIT 1;';
+      const lastRedemptionTS = new Date((await client.query(lastRedemptionQuery)).rows[0].redeemed_at)/1000;
+      const activities = (await post(
+        `query { smartVaultActivities(where: {detailType: "autoRedemption", blockTimestamp_gt: ${lastRedemptionTS}} orderBy: blockTimestamp orderDirection: asc) { id vault{id} blockTimestamp } }`
+      )).data.smartVaultActivities;
+  
+      for (let i = 0; i < activities.length; i++) {
+        console.log(i);
+        const activity = { ... activities[i], ... await getDetailedActivity(activities[i].id) }
+        activity.symbol = activity.token === ethers.constants.AddressZero ?
+          'ETH' : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).symbol();
+        activity.decimals = activity.token === ethers.constants.AddressZero ?
+          18 : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).decimals();
+        activity.collateralSold = await calculateCollateralSwapped(activity, provider);
+        activity.collateralSoldUSD = await convertToUSDHistorical(activity, provider);
+        const insertRedemptionQuery = 'INSERT INTO redemptions (tx_hash,vault_address,collateral_token,redeemed_at,usds_redeemed,collateral_sold,collateral_sold_usd) values ($1,$2,$3,$4,$5,$6,$7)'
+        await client.query(insertRedemptionQuery, [
+          activity.id,
+          activity.vault.id,
+          activity.symbol,
+          new Date(activity.blockTimestamp*1000),
+          formatEther(BigNumber.from(activity.USDsRedeemed)),
+          formatUnits(activity.collateralSold, activity.decimals),
+          activity.collateralSoldUSD
+        ])
+      }
+  
+    } catch (e) {
+      console.log(e);
+    } finally {
+      client.release();
     }
-
-  } catch (e) {
-    console.log(e);
-  } finally {
-    client.release();
-  }
+  });
 }
 
 module.exports = {
