@@ -111,7 +111,7 @@ const scheduleRedemptionChecks = async _ => {
       `query { smartVaultActivities(where: {detailType: "autoRedemption", blockTimestamp_gt: ${lastRedemptionTS}} orderBy: blockTimestamp orderDirection: asc) { id vault{id} blockTimestamp } }`
     )).data.smartVaultActivities;
 
-    for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < activities.length; i++) {
       console.log(i);
       const activity = { ... activities[i], ... await getDetailedActivity(activities[i].id) }
       activity.symbol = activity.token === ethers.constants.AddressZero ?
