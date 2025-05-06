@@ -93,7 +93,7 @@ const convertToUSDHistorical = async (activity, provider) => {
   const clFeed = (await getContract('arbitrum', 'Chainlink', clFeeds[activity.token])).connect(provider);
   let { updatedAt, roundId, answer } = await clFeed.latestRoundData();
   while(updatedAt.gt(activity.blockTimestamp)) {
-    console.log(updatedAt.sub(1746505440).toString());
+    console.log(updatedAt.sub(activity.blockTimestamp).toString());
     roundId = roundId.sub(1);
     ({updatedAt, answer} = await clFeed.getRoundData(roundId));
   }
@@ -110,28 +110,27 @@ const scheduleRedemptionChecks = async _ => {
     const activities = (await post(
       `query { smartVaultActivities(where: {detailType: "autoRedemption", blockTimestamp_gt: ${lastRedemptionTS}} orderBy: blockTimestamp orderDirection: asc) { id vault{id} blockTimestamp } }`
     )).data.smartVaultActivities;
-    console.log(activities[0].id)
 
-    // for (let i = 0; i < 1; i++) {
-    //   console.log(i);
-    //   const activity = { ... activities[i], ... await getDetailedActivity(activities[i].id) }
-    //   activity.symbol = activity.token === ethers.constants.AddressZero ?
-    //     'ETH' : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).symbol();
-    //   activity.decimals = activity.token === ethers.constants.AddressZero ?
-    //     18 : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).decimals();
-    //   activity.collateralSold = await calculateCollateralSwapped(activity, provider);
-    //   activity.collateralSoldUSD = await convertToUSDHistorical(activity, provider);
-    //   const insertRedemptionQuery = 'INSERT INTO redemptions (tx_hash,vault_address,collateral_token,redeemed_at,usds_redeemed,collateral_sold,collateral_sold_usd) values ($1,$2,$3,$4,$5,$6,$7)'
-    //   await client.query(insertRedemptionQuery, [
-    //     activity.id,
-    //     activity.vault.id,
-    //     activity.symbol,
-    //     new Date(activity.blockTimestamp*1000),
-    //     formatEther(BigNumber.from(activity.USDsRedeemed)),
-    //     formatUnits(activity.collateralSold, activity.decimals),
-    //     activity.collateralSoldUSD
-    //   ])
-    // }
+    for (let i = 0; i < 1; i++) {
+      console.log(i);
+      const activity = { ... activities[i], ... await getDetailedActivity(activities[i].id) }
+      activity.symbol = activity.token === ethers.constants.AddressZero ?
+        'ETH' : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).symbol();
+      activity.decimals = activity.token === ethers.constants.AddressZero ?
+        18 : await (await getContract('arbitrum', 'ERC20', activity.token)).connect(wallet).decimals();
+      activity.collateralSold = await calculateCollateralSwapped(activity, provider);
+      activity.collateralSoldUSD = await convertToUSDHistorical(activity, provider);
+      const insertRedemptionQuery = 'INSERT INTO redemptions (tx_hash,vault_address,collateral_token,redeemed_at,usds_redeemed,collateral_sold,collateral_sold_usd) values ($1,$2,$3,$4,$5,$6,$7)'
+      await client.query(insertRedemptionQuery, [
+        activity.id,
+        activity.vault.id,
+        activity.symbol,
+        new Date(activity.blockTimestamp*1000),
+        formatEther(BigNumber.from(activity.USDsRedeemed)),
+        formatUnits(activity.collateralSold, activity.decimals),
+        activity.collateralSoldUSD
+      ])
+    }
 
   } catch (e) {
     console.log(e);
