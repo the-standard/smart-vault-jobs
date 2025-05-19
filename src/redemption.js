@@ -3,7 +3,7 @@ const https = require('https')
 const Pool = require('pg-pool');
 const { getContract } = require('./contractFactory');
 const { getNetwork } = require('./networks');
-const { formatUnits, formatEther } = require('ethers/lib/utils');
+const { formatUnits, formatEther, parseEther } = require('ethers/lib/utils');
 const schedule = require('node-schedule');
 
 const { 
@@ -24,7 +24,8 @@ const entryPools = {
   '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f': '0x0e4831319a50228b9e450861297ab92dee15b44f',
   '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': '0xbe3ad6a5669dc0b8b12febc03608860c31e2eef6',
   '0xf97f4df75117a78c1a5a0dbb814af92458539fb4': '0x468b88941e7cc0b88c1869d68ab6b570bcef62ff',
-  '0x912ce59144191c1204e64559fe8253a0e49e6548': '0xc6f780497a95e246eb9449f5e4770916dcd6396a'
+  '0x912ce59144191c1204e64559fe8253a0e49e6548': '0xc6f780497a95e246eb9449f5e4770916dcd6396a',
+  '0x5979D7b546E38E414F7E9822514be443A4800529': '0x35218a1cbaC5Bbc3E57fd9Bd38219D37571b3537'
 }
 
 const clFeeds = {
@@ -33,7 +34,8 @@ const clFeeds = {
   '0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f': '0xd0C7101eACbB49F3deCcCc166d238410D6D46d57',
   '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9': '0x3f3f5dF88dC9F13eac63DF89EC16ef6e7E25DdE7',
   '0xf97f4df75117a78c1a5a0dbb814af92458539fb4': '0x86E53CF1B870786351Da77A57575e79CB55812CB',
-  '0x912ce59144191c1204e64559fe8253a0e49e6548': '0xb2A824043730FE05F3DA2efaFa1CBbe83fa548D6'
+  '0x912ce59144191c1204e64559fe8253a0e49e6548': '0xb2A824043730FE05F3DA2efaFa1CBbe83fa548D6',
+  '0x5979d7b546e38e414f7e9822514be443a4800529': ['0xb523AE262D20A936BC152e6023996e46FDC2A95D', '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612']
 }
 
 const post = async query => {
@@ -90,14 +92,31 @@ const calculateCollateralSwapped = async (activity, provider) => {
     decodedEventArgs.amount0 : decodedEventArgs.amount1;
 }
 
-const convertToUSDHistorical = async (activity, provider) => {
-  const clFeed = (await getContract('arbitrum', 'Chainlink', clFeeds[activity.token])).connect(provider);
+const getPriceAtTS = async (clFeed, blockTimestamp) => {
   let { updatedAt, roundId, answer } = await clFeed.latestRoundData();
-  while(updatedAt.gt(activity.blockTimestamp)) {
+  while(updatedAt.gt(blockTimestamp)) {
     roundId = roundId.sub(1);
     ({updatedAt, answer} = await clFeed.getRoundData(roundId));
   }
-  return formatUnits(activity.collateralSold.mul(answer), 8 + activity.decimals);
+  return answer;
+}
+
+const convertToUSDHistorical = async (activity, provider) => {
+  const clFeedAddress = clFeeds[activity.token];
+  if (clFeedAddress.length === 2) {
+    const clFeedA = (await getContract('arbitrum', 'Chainlink', clFeedAddress[0])).connect(provider);
+    const clFeedB = (await getContract('arbitrum', 'Chainlink', clFeedAddress[1])).connect(provider);
+    const aPriceAtTS = await getPriceAtTS(clFeedA, activity.blockTimestamp);
+    const bPriceAtTS = await getPriceAtTS(clFeedB, activity.blockTimestamp);
+    return formatUnits(
+      activity.collateralSold.mul(aPriceAtTS).mul(bPriceAtTS).toString(),
+      activity.decimals + await clFeedA.decimals() + await clFeedB.decimals()
+    )
+  } else {
+    const clFeed = (await getContract('arbitrum', 'Chainlink', clFeedAddress)).connect(provider);
+    const priceAtTS = await getPriceAtTS(clFeed, activity.blockTimestamp);
+    return formatUnits(activity.collateralSold.mul(priceAtTS), 8 + activity.decimals);
+  }
 }
 
 const scheduleRedemptionChecks = async _ => {
