@@ -186,7 +186,6 @@ const determineRedemptionCandidates = async data => {
 
 const saveRedemptionData = async data => {
   data = data.map(candidate => (({ tokenID, collateral, hypervisor }) => ({ tokenID, collateral, hypervisor }))(candidate));
-  console.log(data)
   const key = 'redemptions';
   await redis.connect();
   let command = redis.MULTI().DEL(key);
@@ -227,13 +226,11 @@ const processDebtData = async token => {
   const liquidatorEUROsBalance = ethers.utils.formatEther(await EUROs.connect(wallet).balanceOf(wallet.address));
   const liquidatorUSDsBalance = ethers.utils.formatEther(await USDs.connect(wallet).balanceOf(wallet.address));
   const content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n**${liquidatorUSDsBalance} USDs**\n---\n`;
-  console.log('liquidations', token, content, liquidationRisks);
   await postToDiscord(content, liquidationRisks.map(postingFormat));
   await saveTokenIDsToRedis(liquidationRisks);
 
   if (token === 'USDs') {
     const redemptionCandidates = await determineRedemptionCandidates(sortedByRisk);
-    console.log('redemptions', token, redemptionCandidates);
     if (redemptionCandidates.length > 0) await saveRedemptionData(redemptionCandidates);
   }
 }
