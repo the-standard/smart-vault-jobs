@@ -169,22 +169,29 @@ const getAllVaultData = async manager => {
   return data;
 }
 
-const determineRedemptionCandidate = async data => {
+const determineRedemptionCandidates = async data => {
+  const candidates = [];
   for (let i = 0; i < data.length; i++) {
     const redemptionCandidateData = await generateRedemptionCandidateData(data[i]);
     if (redemptionCandidateData.mainValue.gt(0) && data[i].totalCollateralValue.div(redemptionCandidateData.mainValue).lt(10)) {
-      return { 
+      candidates.push({ 
         ... redemptionCandidateData,
         tokenID: data[i].tokenID
-      };
+      });
+      if (candidates.length === 5) break;
     }
   }
+  return candidates;
 }
 
 const saveRedemptionData = async data => {
-  data = (({ tokenID, collateral, hypervisor }) => ({ tokenID, collateral, hypervisor }))(data);
+  data = data.map(candidate => (({ tokenID, collateral, hypervisor }) => ({ tokenID, collateral, hypervisor }))(candidate));
+  console.log(data)
+  const key = 'redemptions';
   await redis.connect();
-  await redis.HSET('redemption', data);
+  let command = redis.MULTI().DEL(key);
+  if (data.length > 0) command = command.SADD(key, data.map(candidate => JSON.stringify(candidate)));
+  await command.EXEC();
   await redis.disconnect();
 }
 
@@ -225,9 +232,9 @@ const processDebtData = async token => {
   await saveTokenIDsToRedis(liquidationRisks);
 
   if (token === 'USDs') {
-    const redemptionCandidate = await determineRedemptionCandidate(sortedByRisk);
-    console.log('redemptions', token, redemptionCandidate);
-    if (redemptionCandidate.tokenID) await saveRedemptionData(redemptionCandidate);
+    const redemptionCandidates = await determineRedemptionCandidates(sortedByRisk);
+    console.log('redemptions', token, redemptionCandidates);
+    if (redemptionCandidates.length > 0) await saveRedemptionData(redemptionCandidates);
   }
 }
 
