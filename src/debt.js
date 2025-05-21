@@ -190,7 +190,7 @@ const saveRedemptionData = async data => {
   const key = 'redemptions';
   await redis.connect();
   let command = redis.MULTI().DEL(key);
-  if (data.length > 0) command = command.SADD(key, data.map(candidate => JSON.stringify(candidate)));
+  if (data.length > 0) command = command.RPUSH(key, data.map(candidate => JSON.stringify(candidate)));
   await command.EXEC();
   await redis.disconnect();
 }
