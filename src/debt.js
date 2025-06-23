@@ -195,9 +195,6 @@ const saveRedemptionData = async data => {
 }
 
 const saveTokenIDsToRedis = async data => {
-  console.log('hi')
-  console.log(data.length)
-  console.log('hello')
   const key = 'atRiskVaults';
   await redis.connect();
   let command = redis.MULTI().DEL(key);
