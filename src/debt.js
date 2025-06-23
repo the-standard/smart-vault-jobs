@@ -158,7 +158,7 @@ const postToDiscord = async (content, embeds) => {
 const getAllVaultData = async manager => {
   const supply = Number((await getVaultSupply(manager)).toString());
   const data = [];
-  for (let tokenID = 1; tokenID <= supply; tokenID++) {
+  for (let tokenID = 109; tokenID <= 120; tokenID++) {
     try {
       const { status } = await manager.vaultData(tokenID);
       data.push({ ... status, tokenID });
@@ -195,6 +195,9 @@ const saveRedemptionData = async data => {
 }
 
 const saveTokenIDsToRedis = async data => {
+  console.log('hi')
+  console.log(data.length)
+  console.log('hello')
   const key = 'atRiskVaults';
   await redis.connect();
   let command = redis.MULTI().DEL(key);
