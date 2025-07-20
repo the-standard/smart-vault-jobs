@@ -46,12 +46,13 @@ const post = async query => {
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': dataString.length,
+      'Authorization': `Bearer ${process.env.THE_GRAPH_API_KEY}`
     },
     timeout: 2000
   }
 
   return new Promise((resolve, reject) => {
-    const req = https.request('https://api.studio.thegraph.com/query/109184/smart-vault-history/v1.2.1', options, (res) => {
+    const req = https.request('https://gateway.thegraph.com/api/subgraphs/id/HigybHbmBZkBtXo7mJdiks3wAkRrpfXQx3t4mYuR5rR6', options, (res) => {
       if (res.statusCode < 200 || res.statusCode > 299) {
         return reject(new Error(`HTTP status code ${res.statusCode}`))
       }
