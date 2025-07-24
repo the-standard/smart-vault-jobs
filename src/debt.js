@@ -227,9 +227,9 @@ const processDebtData = async token => {
   const liquidatorUSDsBalance = ethers.utils.formatEther(await USDs.connect(wallet).balanceOf(wallet.address));
   const content = `Liquidator wallet balance:\n**${liquidatorETHBalance} ETH**\n**${liquidatorEUROsBalance} EUROs**\n**${liquidatorUSDsBalance} USDs**\n---\n`;
   await postToDiscord(content, liquidationRisks.map(postingFormat));
-  await saveTokenIDsToRedis(liquidationRisks);
 
   if (token === 'USDs') {
+    await saveTokenIDsToRedis(liquidationRisks);
     const redemptionCandidates = await determineRedemptionCandidates(sortedByRisk);
     if (redemptionCandidates.length > 0) await saveRedemptionData(redemptionCandidates);
   }
